@@ -39,7 +39,6 @@ import {
   Folder,
   Edit,
   UserPlus,
-  Camera,
   FileSpreadsheet
 } from 'lucide-react';
 import {
@@ -801,93 +800,70 @@ export const Dashboard: React.FC<DashboardProps> = ({
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
         {/* Responsive Controls Bar */}
         <div className="flex flex-col gap-3">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-            <div>
-              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <Users className="w-4 h-4 text-indigo-600" />
-                <span>รายชื่อและคะแนนความประพฤตินักเรียน</span>
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                ค้นหาตามระดับ (ม.ต้น/ม.ปลาย), ชั้น (ม.1/1 - ม.6/7 จากฐานข้อมูล), และระดับคะแนนความประพฤติ 6 ระดับ
-              </p>
+          {/* Title Header */}
+          <div>
+            <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+              <Users className="w-4 h-4 text-indigo-600" />
+              <span>รายชื่อและคะแนนความประพฤตินักเรียน</span>
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              ค้นหาตามระดับ (ม.ต้น/ม.ปลาย), ชั้น (ม.1/1 - ม.6/7 จากฐานข้อมูล), และระดับคะแนนความประพฤติ 6 ระดับ
+            </p>
+          </div>
+
+          {/* Action Row: ปุ่มเพิ่มนักเรียน, ยอดที่พบ, กางออก/พับเข้า (1 บรรทัด) */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {onOpenAddStudent && (userRole === 'admin' || userRole === 'staff') && (
+              <button
+                type="button"
+                onClick={onOpenAddStudent}
+                className="text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs shadow-indigo-200"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>เพิ่มนักเรียน</span>
+              </button>
+            )}
+
+            <div className="text-xs font-semibold text-slate-600 bg-slate-100 border border-slate-200/80 px-2.5 py-1.5 rounded-xl">
+              พบ {filteredStudents.length} คน จากทั้งหมด {activeStudents.length} คน
             </div>
 
-            {/* Quick Count Badge & Expand All Toggle */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {onOpenImportConductModal && (userRole === 'admin' || userRole === 'staff' || userRole === 'teacher') && (
-                <button
-                  type="button"
-                  onClick={onOpenImportConductModal}
-                  className="text-xs font-bold text-rose-700 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-3 py-1.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
-                  title="นำเข้าข้อมูลการกระทำผิดและตัดคะแนนจากไฟล์ Excel"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-rose-600" />
-                  <span>นำเข้าการกระทำผิด (Excel)</span>
-                </button>
-              )}
+            {filteredStudents.length > 0 && (
+              <button
+                type="button"
+                onClick={toggleExpandAll}
+                className="text-xs font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-1.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                title="กางออกหรือพับแถวข้อมูลทั้งหมดในตาราง"
+              >
+                {expandedStudentIds.size >= filteredStudents.length ? (
+                  <>
+                    <ChevronUp className="w-3.5 h-3.5" />
+                    <span>พับเข้า</span>
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-3.5 h-3.5" />
+                    <span>กางออก</span>
+                  </>
+                )}
+              </button>
+            )}
 
-              {onOpenPhotoManager && (userRole === 'admin' || userRole === 'staff') && (
-                <button
-                  type="button"
-                  onClick={onOpenPhotoManager}
-                  className="text-xs font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-1.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
-                  title="จัดการและอัพโหลดรูปถ่ายนักเรียน (.jpg)"
-                >
-                  <Camera className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>รูปถ่าย .jpg</span>
-                </button>
-              )}
-
-              {onOpenAddStudent && (userRole === 'admin' || userRole === 'staff') && (
-                <button
-                  type="button"
-                  onClick={onOpenAddStudent}
-                  className="text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs shadow-indigo-200"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>เพิ่มนักเรียน</span>
-                </button>
-              )}
-
-              {(levelFilter !== 'ALL' || classroomFilter !== 'ALL' || scoreStatusFilter !== 'ALL' || searchQuery.trim()) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setLevelFilter('ALL');
-                    setClassroomFilter('ALL');
-                    setScoreStatusFilter('ALL');
-                  }}
-                  className="text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
-                >
-                  <RotateCcw className="w-3 h-3" />
-                  <span>ล้างตัวกรอง</span>
-                </button>
-              )}
-              <div className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1.5 rounded-xl">
-                พบ {filteredStudents.length} คน จากทั้งหมด {activeStudents.length} คน
-              </div>
-              {filteredStudents.length > 0 && (
-                <button
-                  type="button"
-                  onClick={toggleExpandAll}
-                  className="text-xs font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-1.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
-                  title="กางหรือพับแถวข้อมูลทั้งหมดในตาราง"
-                >
-                  {expandedStudentIds.size >= filteredStudents.length ? (
-                    <>
-                      <ChevronUp className="w-3.5 h-3.5" />
-                      <span>พับทั้งหมด</span>
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown className="w-3.5 h-3.5" />
-                      <span>กางทั้งหมด</span>
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
+            {(levelFilter !== 'ALL' || classroomFilter !== 'ALL' || scoreStatusFilter !== 'ALL' || searchQuery.trim()) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setLevelFilter('ALL');
+                  setClassroomFilter('ALL');
+                  setScoreStatusFilter('ALL');
+                }}
+                className="text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>ล้างตัวกรอง</span>
+              </button>
+            )}
           </div>
 
           {/* Filters Row */}
