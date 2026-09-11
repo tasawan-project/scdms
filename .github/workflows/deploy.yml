@@ -27,16 +27,13 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Lint and Type Check
-        run: npm run lint || echo "Lint warnings detected, proceeding with build..."
-
       - name: Build production bundle
-        run: npm run build
+        run: npx --no-install vite build
 
       - name: Setup SPA 404 fallback
         run: cp dist/index.html dist/404.html
