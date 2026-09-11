@@ -1,0 +1,6 @@
+{
+  "name": "ระบบจัดการคะแนนความประพฤตินักเรียน",
+  "description": "ระบบจัดการและปรับปรุงคะแนนความประพฤตินักเรียนสำหรับอาจารย์และนักเรียน พร้อมแดชบอร์ดสรุปผล การตัด/เพิ่มคะแนน และแจ้งเตือน",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,168 @@
+{
+  "entities": {
+    "Student": {
+      "title": "Student",
+      "description": "Student record with conduct score and academic level",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nationalId": { "type": "string" },
+        "title": { "type": "string" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "entryYear": { "type": "number" },
+        "entryLevel": { "type": "string" },
+        "room": { "type": "number" },
+        "currentScore": { "type": "number" },
+        "bankedPoints": { "type": "number" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "firstName", "lastName", "entryYear", "entryLevel", "room", "currentScore"]
+    },
+    "ConductLog": {
+      "title": "ConductLog",
+      "description": "Log of score deductions or additions for students",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "type": { "type": "string" },
+        "points": { "type": "number" },
+        "reason": { "type": "string" },
+        "category": { "type": "string" },
+        "recordedBy": { "type": "string" },
+        "recordedAt": { "type": "string" },
+        "academicYear": { "type": "number" },
+        "term": { "type": "number" }
+      },
+      "required": ["id", "studentId", "type", "points", "reason", "recordedBy", "recordedAt", "academicYear", "term"]
+    },
+    "AppUser": {
+      "title": "AppUser",
+      "description": "System user account (admin, staff, teacher)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "username": { "type": "string" },
+        "password": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "department": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "isSuperAdmin": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "lastLoginAt": { "type": "string" }
+      },
+      "required": ["id", "username", "name", "role", "isActive", "createdAt"]
+    },
+    "StudentAccessGrant": {
+      "title": "StudentAccessGrant",
+      "description": "Time-limited or active student score viewing authorization",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "studentName": { "type": "string" },
+        "grantedByUserId": { "type": "string" },
+        "grantedByUserName": { "type": "string" },
+        "grantedByUserRole": { "type": "string" },
+        "grantedAt": { "type": "string" },
+        "expiresAt": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "reason": { "type": "string" }
+      },
+      "required": ["id", "studentId", "studentName", "grantedByUserId", "grantedByUserName", "grantedAt", "isActive"]
+    },
+    "HomeroomAdvisor": {
+      "title": "HomeroomAdvisor",
+      "description": "Homeroom teacher/advisor assigned to class",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "fullName": { "type": "string" },
+        "gradeLevel": { "type": "string" },
+        "room": { "type": "number" },
+        "classroom": { "type": "string" },
+        "academicYear": { "type": "number" },
+        "advisorOrder": { "type": "number" },
+        "phone": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "firstName", "lastName", "gradeLevel", "room", "academicYear"]
+    },
+    "StandardConductBehavior": {
+      "title": "StandardConductBehavior",
+      "description": "Standard deduction or reward behavior rules",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "type": { "type": "string" },
+        "points": { "type": "number" },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "title", "type", "points", "category"]
+    },
+    "SystemSettings": {
+      "title": "SystemSettings",
+      "description": "School branding and menu access control permissions",
+      "type": "object",
+      "properties": {
+        "schoolNameTh": { "type": "string" },
+        "schoolNameEn": { "type": "string" },
+        "appNameTh": { "type": "string" },
+        "appNameEn": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "currentAcademicYear": { "type": "number" },
+        "currentTerm": { "type": "number" },
+        "requireLoginBeforeAccess": { "type": "boolean" },
+        "criticalScoreThreshold": { "type": "number" },
+        "watchScoreThreshold": { "type": "number" },
+        "cautionScoreThreshold": { "type": "number" },
+        "maxBankedPointsCap": { "type": "number" },
+        "menuPermissions": { "type": "object" }
+      }
+    }
+  },
+  "firestore": {
+    "/students/{studentId}": {
+      "schema": "Student",
+      "description": "Collection of student academic and conduct profiles"
+    },
+    "/conduct_logs/{logId}": {
+      "schema": "ConductLog",
+      "description": "Collection of individual conduct deductions and reward point logs"
+    },
+    "/app_users/{userId}": {
+      "schema": "AppUser",
+      "description": "Collection of authorized teachers, staff, and administrators"
+    },
+    "/student_access_grants/{grantId}": {
+      "schema": "StudentAccessGrant",
+      "description": "Collection of individual student access grants"
+    },
+    "/homeroom_advisors/{advisorId}": {
+      "schema": "HomeroomAdvisor",
+      "description": "Collection of homeroom advisors mapped to classrooms"
+    },
+    "/standard_conduct_behaviors/{behaviorId}": {
+      "schema": "StandardConductBehavior",
+      "description": "Collection of standard behaviors and rules"
+    },
+    "/settings/{settingsId}": {
+      "schema": "SystemSettings",
+      "description": "Global school settings and menu permissions configuration"
+    }
+  }
+}
