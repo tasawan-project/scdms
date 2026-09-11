@@ -35,7 +35,7 @@ jobs:
       - name: Build production bundle
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
-        run: npx --no-install vite build
+        run: npm run build
 
       - name: Setup SPA and disable Jekyll
         run: |
