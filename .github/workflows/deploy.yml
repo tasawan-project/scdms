@@ -33,9 +33,9 @@ jobs:
       - name: Install dependencies
         run: |
           if [ -f package-lock.json ]; then
-            npm ci
+            npm ci --legacy-peer-deps || npm install --legacy-peer-deps
           else
-            npm install
+            npm install --legacy-peer-deps
           fi
 
       - name: Lint and Type Check
@@ -44,8 +44,11 @@ jobs:
       - name: Build production bundle
         run: npm run build
 
+      - name: Setup SPA 404 fallback
+        run: cp dist/index.html dist/404.html
+
       - name: Setup Pages
-        uses: actions/configure-pages@v4
+        uses: actions/configure-pages@v5
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
