@@ -54,6 +54,7 @@ export const ConductActionModal: React.FC<ConductActionModalProps> = ({
   const [type, setType] = useState<ConductType>(defaultType);
   const [points, setPoints] = useState<number | ''>('');
   const [category, setCategory] = useState<string>('');
+  const [behaviorTitle, setBehaviorTitle] = useState<string>('');
   const [reason, setReason] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [recordedBy, setRecordedBy] = useState<string>(recordedByName || 'อาจารย์ฝ่ายปกครอง');
@@ -177,7 +178,8 @@ export const ConductActionModal: React.FC<ConductActionModalProps> = ({
     setSelectedBehaviorId(b.id);
     setPoints(b.points);
     setCategory(b.category);
-    setReason(b.description && b.description.trim() ? b.description.trim() : b.title);
+    setBehaviorTitle(b.title);
+    setReason(b.description && b.description.trim() ? b.description.trim() : '');
     const today = new Date().toISOString().split('T')[0];
     setViolationDate(today);
     setAutoFilledBehaviorTitle(b.title);
@@ -200,7 +202,8 @@ export const ConductActionModal: React.FC<ConductActionModalProps> = ({
     targetPoints: number,
     targetCategory: string,
     targetReason: string,
-    targetDate: string
+    targetDate: string,
+    targetTitle?: string
   ) => {
     if (isSubmitting) return;
     setIsSubmitting(true);
@@ -229,6 +232,17 @@ export const ConductActionModal: React.FC<ConductActionModalProps> = ({
         updatedAt: nowIso
       };
 
+      const matchedPreset = dbBehaviors.find(b => b.id === selectedBehaviorId);
+      const effectiveTitle = (
+        targetTitle ||
+        behaviorTitle.trim() ||
+        autoFilledBehaviorTitle ||
+        matchedPreset?.title ||
+        targetReason.trim() ||
+        (targetType === 'DEDUCT' ? 'หักคะแนนความประพฤติ' : 'เพิ่มคะแนนความประพฤติ')
+      ).trim();
+      const effectiveDescription = targetReason.trim();
+
       const log: ConductLog = {
         id: logId,
         studentId: student.id,
@@ -243,7 +257,10 @@ export const ConductActionModal: React.FC<ConductActionModalProps> = ({
         bankedBefore: student.bankedPoints ?? 0,
         bankedAfter: activePreview.newBankedPoints,
         category: targetCategory.trim() || (targetType === 'DEDUCT' ? 'วินัยทั่วไป' : 'ความดีทั่วไป'),
-        reason: targetReason.trim() || (targetType === 'DEDUCT' ? 'หักคะแนนความประพฤติ' : 'เพิ่มคะแนนความประพฤติ'),
+        behaviorTitle: effectiveTitle,
+        behaviorId: selectedBehaviorId || undefined,
+        description: effectiveDescription || undefined,
+        reason: effectiveDescription || effectiveTitle,
         violationDate: targetDate || nowIso.split('T')[0],
         notes: notes.trim() || undefined,
         recordedBy: recordedBy.trim() || 'เจ้าหน้าที่ฝ่ายปกครอง',
@@ -283,7 +300,15 @@ export const ConductActionModal: React.FC<ConductActionModalProps> = ({
     }
 
     const effectiveCategory = category.trim() || (type === 'DEDUCT' ? 'วินัยทั่วไป' : 'ความดีทั่วไป');
-    const effectiveReason = reason.trim() || autoFilledBehaviorTitle || (type === 'DEDUCT' ? 'หักคะแนนความประพฤติ' : 'เพิ่มคะแนนความประพฤติ');
+    const matchedPreset = dbBehaviors.find(b => b.id === selectedBehaviorId);
+    const effectiveTitle = (
+      behaviorTitle.trim() ||
+      autoFilledBehaviorTitle ||
+      matchedPreset?.title ||
+      reason.trim() ||
+      (type === 'DEDUCT' ? 'หักคะแนนความประพฤติ' : 'เพิ่มคะแนนความประพฤติ')
+    ).trim();
+    const effectiveReason = reason.trim();
     const effectiveDate = violationDate || new Date().toISOString().split('T')[0];
 
     // If score is critical (<= 50) on deduction or user explicitly checked confirm, prompt safety modal
@@ -293,7 +318,7 @@ export const ConductActionModal: React.FC<ConductActionModalProps> = ({
     }
 
     // Otherwise, fast direct save!
-    await executeSubmit(type, numPoints, effectiveCategory, effectiveReason, effectiveDate);
+    await executeSubmit(type, numPoints, effectiveCategory, effectiveReason, effectiveDate, effectiveTitle);
   };
 
   // Save from safety confirmation dialog
@@ -301,9 +326,17 @@ export const ConductActionModal: React.FC<ConductActionModalProps> = ({
     const numPoints = typeof points === 'number' ? points : parseInt(String(points), 10);
     if (!numPoints || isNaN(numPoints) || numPoints <= 0) return;
     const effectiveCategory = category.trim() || (type === 'DEDUCT' ? 'วินัยทั่วไป' : 'ความดีทั่วไป');
-    const effectiveReason = reason.trim() || autoFilledBehaviorTitle || (type === 'DEDUCT' ? 'หักคะแนนความประพฤติ' : 'เพิ่มคะแนนความประพฤติ');
+    const matchedPreset = dbBehaviors.find(b => b.id === selectedBehaviorId);
+    const effectiveTitle = (
+      behaviorTitle.trim() ||
+      autoFilledBehaviorTitle ||
+      matchedPreset?.title ||
+      reason.trim() ||
+      (type === 'DEDUCT' ? 'หักคะแนนความประพฤติ' : 'เพิ่มคะแนนความประพฤติ')
+    ).trim();
+    const effectiveReason = reason.trim();
     const effectiveDate = violationDate || new Date().toISOString().split('T')[0];
-    await executeSubmit(type, numPoints, effectiveCategory, effectiveReason, effectiveDate);
+    await executeSubmit(type, numPoints, effectiveCategory, effectiveReason, effectiveDate, effectiveTitle);
   };
 
   // Open Quick Add Behavior Modal
@@ -683,20 +716,36 @@ export const ConductActionModal: React.FC<ConductActionModalProps> = ({
             )}
           </div>
 
+          {/* Behavior Title / Standard Topic */}
+          <div>
+            <label className="block text-xs font-bold text-slate-800 mb-1">
+              หัวข้อ / ชื่อพฤติกรรมมาตรฐาน:
+            </label>
+            <input
+              type="text"
+              value={behaviorTitle}
+              onChange={e => {
+                setBehaviorTitle(e.target.value);
+                setAutoFilledBehaviorTitle(null);
+              }}
+              placeholder="เช่น การมาสาย / ไม่เข้าแถว, ช่วยงานกิจกรรมของโรงเรียน..."
+              className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+            />
+          </div>
+
           {/* Reason / Details & Date */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-2">
               <label className="block text-xs font-bold text-slate-800 mb-1">
-                รายละเอียดเหตุผล / กิจกรรม:
+                รายละเอียดพฤติกรรม / เกณฑ์การพิจารณา (ถ้ามี):
               </label>
               <input
                 type="text"
                 value={reason}
                 onChange={e => {
                   setReason(e.target.value);
-                  setSelectedBehaviorId(null);
                 }}
-                placeholder="ระบุพฤติกรรม (หรือเว้นว่างเพื่อใช้ชื่อตามหมวด)"
+                placeholder="ระบุรายละเอียดเพิ่มเติม หรือเกณฑ์การพิจารณา (ถ้ามีให้ระบุ ไม่มีปล่อยว่างได้)"
                 className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
               />
             </div>

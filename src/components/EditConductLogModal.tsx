@@ -47,6 +47,7 @@ export const EditConductLogModal: React.FC<EditConductLogModalProps> = ({
   const [type, setType] = useState<ConductType>(log.type);
   const [points, setPoints] = useState<number>(log.points || 5);
   const [category, setCategory] = useState<string>(log.category || (log.type === 'DEDUCT' ? 'วินัยทั่วไป' : 'กิจกรรมทั่วไป'));
+  const [behaviorTitle, setBehaviorTitle] = useState<string>(log.behaviorTitle || '');
   const [reason, setReason] = useState<string>(log.reason || '');
   const [notes, setNotes] = useState<string>(log.notes || '');
   const [recordedBy, setRecordedBy] = useState<string>(log.recordedBy || 'เจ้าหน้าที่ฝ่ายปกครอง');
@@ -74,6 +75,8 @@ export const EditConductLogModal: React.FC<EditConductLogModalProps> = ({
       type,
       points: rawPoints,
       category: category.trim() || (type === 'DEDUCT' ? 'วินัยทั่วไป' : 'ความดีทั่วไป'),
+      behaviorTitle: behaviorTitle.trim() || log.behaviorTitle || undefined,
+      description: reason.trim() || undefined,
       reason: reason.trim() || log.reason || (type === 'DEDUCT' ? 'หักคะแนนความประพฤติ' : 'เพิ่มคะแนนความประพฤติ'),
       violationDate: violationDate || undefined,
       notes: notes.trim() || undefined,
@@ -101,7 +104,7 @@ export const EditConductLogModal: React.FC<EditConductLogModalProps> = ({
       simulatedUpdatedStudent: calculatedStudent,
       updatedEnrichedLog: enrichedLog
     };
-  }, [log, student, allStudentLogs, type, points, category, reason, violationDate, notes, recordedBy, recordedAt, academicYear, term, maxBankedPoints]);
+  }, [log, student, allStudentLogs, type, points, category, behaviorTitle, reason, violationDate, notes, recordedBy, recordedAt, academicYear, term, maxBankedPoints]);
 
   const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -270,6 +273,20 @@ export const EditConductLogModal: React.FC<EditConductLogModalProps> = ({
             </div>
           </div>
 
+          {/* Behavior Title */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              หัวข้อ / ชื่อพฤติกรรมมาตรฐาน:
+            </label>
+            <input
+              type="text"
+              value={behaviorTitle}
+              onChange={e => setBehaviorTitle(e.target.value)}
+              placeholder="เช่น การมาสาย / ไม่เข้าแถว, ช่วยเหลืองานโรงเรียน..."
+              className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+            />
+          </div>
+
           {/* Category */}
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -285,16 +302,16 @@ export const EditConductLogModal: React.FC<EditConductLogModalProps> = ({
             />
           </div>
 
-          {/* Reason */}
+          {/* Reason / Details */}
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
-              เหตุผล / รายละเอียดพฤติกรรม:
+              รายละเอียดพฤติกรรม / เกณฑ์การพิจารณา (ถ้ามี):
             </label>
             <textarea
               rows={2}
               value={reason}
               onChange={e => setReason(e.target.value)}
-              placeholder="ระบุพฤติกรรมหรือกิจกรรมอย่างละเอียด..."
+              placeholder="ระบุรายละเอียดพฤติกรรม หรือเกณฑ์การพิจารณาเพิ่มเติม (ถ้ามีให้ระบุ ไม่มีปล่อยว่างได้)..."
               className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
             />
           </div>

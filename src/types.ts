@@ -68,6 +68,9 @@ export interface ConductLog {
   bankedPointsDelta: number; // คะแนนที่เข้า/ออกจากคะแนนสะสมสำรอง
   reason: string; // เหตุผล/รายละเอียดพฤติกรรม/กิจกรรม
   category: string; // หมวดหมู่ เช่น การเข้าเรียนและวินัย, จิตอาสา, การแต่งกาย
+  behaviorTitle?: string; // หัวข้อหรือชื่อพฤติกรรมมาตรฐาน เช่น "การมาสาย / ไม่เข้าแถว"
+  behaviorId?: string; // ID พฤติกรรมมาตรฐานที่อ้างอิง (ถ้ามี)
+  description?: string; // รายละเอียดพฤติกรรม / เกณฑ์การพิจารณา (ถ้ามี)
   violationDate?: string; // วันที่กระทำผิด / วันที่เกิดเหตุ หรือวันที่ทำกิจกรรม (YYYY-MM-DD หรือ ISO)
   recordedBy: string; // ผู้บันทึก (ชื่ออาจารย์)
   recordedByName?: string; // ชื่อผู้บันทึกแสดงผล

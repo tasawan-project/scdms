@@ -8,8 +8,10 @@ import {
   HomeroomAdvisor,
   ScoreFilterType,
   EducationalLevel,
-  GradeLevel
+  GradeLevel,
+  StandardConductBehavior
 } from '../types';
+import { INITIAL_STANDARD_BEHAVIORS } from '../data/standardBehaviorsData';
 import {
   calculateStudentGrade,
   getScoreCategory,
@@ -81,6 +83,7 @@ interface StudentLookupProps {
   onEditConductLog?: (updatedLog: ConductLog, updatedStudent: Student) => Promise<void>;
   onDeleteConductLog?: (log: ConductLog, updatedStudent: Student) => Promise<void>;
   onOpenPhotoManager?: () => void;
+  standardBehaviors?: StandardConductBehavior[];
 }
 
 export const StudentLookup: React.FC<StudentLookupProps> = ({
@@ -101,7 +104,8 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
   onDeleteStudent,
   onEditConductLog,
   onDeleteConductLog,
-  onOpenPhotoManager
+  onOpenPhotoManager,
+  standardBehaviors = []
 }) => {
   const cutoffs = useMemo(() => parseConductCutoffs(systemSettings), [systemSettings]);
   const userRole = currentUser?.role || 'student';
@@ -109,6 +113,127 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
   const canDeductAndAdd = userRole === 'admin' || userRole === 'staff' || userRole === 'teacher';
   const canGrantAccess = userRole === 'admin' || userRole === 'staff' || userRole === 'teacher';
   const canManageLogs = userRole === 'admin' || userRole === 'staff' || userRole === 'teacher';
+
+  // Build a unified standard behaviors lookup list
+  const allBehaviors = useMemo(() => {
+    const list = [...(standardBehaviors || []), ...INITIAL_STANDARD_BEHAVIORS];
+    const map = new Map<string, StandardConductBehavior>();
+    list.forEach(b => {
+      if (b && b.id && !map.has(b.id)) {
+        map.set(b.id, b);
+      }
+    });
+    return Array.from(map.values());
+  }, [standardBehaviors]);
+
+  // Helper to resolve "หัวข้อ / ชื่อพฤติกรรมมาตรฐาน" (แถวบน) และ "รายละเอียดพฤติกรรม / เกณฑ์การพิจารณา" (แถวล่าง)
+  const getLogBehaviorInfo = (log: ConductLog): { behaviorTitle: string; description: string } => {
+    // 1. กรณีบันทึก behaviorTitle ชัดเจนใน log
+    if (log.behaviorTitle && log.behaviorTitle.trim()) {
+      const title = log.behaviorTitle.trim();
+      let desc = (log.description || '').trim();
+      if (!desc) {
+        const match = allBehaviors.find(
+          b => b.title.trim().toLowerCase() === title.toLowerCase() || b.id === log.behaviorId
+        );
+        if (match?.description && match.description.trim()) {
+          desc = match.description.trim();
+        } else if (log.reason && log.reason.trim() !== title) {
+          desc = log.reason.trim();
+        }
+      }
+      return {
+        behaviorTitle: title,
+        description: desc
+      };
+    }
+
+    // 2. กรณีอ้างอิงจาก behaviorId
+    if (log.behaviorId) {
+      const match = allBehaviors.find(b => b.id === log.behaviorId);
+      if (match) {
+        return {
+          behaviorTitle: match.title,
+          description: (log.description || match.description || (log.reason !== match.title ? log.reason : '')).trim()
+        };
+      }
+    }
+
+    const cleanReason = (log.reason || '').trim();
+
+    // 3. ตรงกับชื่อพฤติกรรมมาตรฐานเป๊ะ (exact title match)
+    const exactTitleMatch = allBehaviors.find(b => b.title.trim() === cleanReason);
+    if (exactTitleMatch) {
+      return {
+        behaviorTitle: exactTitleMatch.title,
+        description: (log.description || exactTitleMatch.description || '').trim()
+      };
+    }
+
+    // 4. ตรงกับรายละเอียดของพฤติกรรมมาตรฐานเป๊ะ (exact description match)
+    const exactDescMatch = allBehaviors.find(b => b.description && b.description.trim() === cleanReason);
+    if (exactDescMatch) {
+      return {
+        behaviorTitle: exactDescMatch.title,
+        description: cleanReason
+      };
+    }
+
+    // 5. ค้นหาแบบ fuzzy match จากชื่อพฤติกรรม
+    const partialTitleMatch = allBehaviors.find(b => {
+      if (b.type !== log.type) return false;
+      const bTitle = b.title.trim();
+      return cleanReason.includes(bTitle) || (cleanReason.length >= 4 && bTitle.includes(cleanReason));
+    });
+    if (partialTitleMatch) {
+      return {
+        behaviorTitle: partialTitleMatch.title,
+        description: (log.description || (cleanReason !== partialTitleMatch.title ? cleanReason : partialTitleMatch.description) || '').trim()
+      };
+    }
+
+    // 6. ค้นหาแบบ fuzzy match จากรายละเอียด
+    const partialDescMatch = allBehaviors.find(b => {
+      if (b.type !== log.type) return false;
+      const bDesc = (b.description || '').trim();
+      if (!bDesc || bDesc.length < 5) return false;
+      return cleanReason.includes(bDesc) || bDesc.includes(cleanReason);
+    });
+    if (partialDescMatch) {
+      return {
+        behaviorTitle: partialDescMatch.title,
+        description: cleanReason || partialDescMatch.description.trim()
+      };
+    }
+
+    // 7. พฤติกรรมที่กรอกเอง (Custom input)
+    if (cleanReason) {
+      if (cleanReason.includes(' : ')) {
+        const [t, ...rest] = cleanReason.split(' : ');
+        return {
+          behaviorTitle: t.trim(),
+          description: rest.join(' : ').trim()
+        };
+      }
+      if (log.description && log.description.trim()) {
+        return {
+          behaviorTitle: cleanReason,
+          description: log.description.trim()
+        };
+      }
+      // ถ้าไม่มีรายละเอียดเกณฑ์ ให้ปล่อยว่างตามที่ผู้ใช้กำหนด
+      return {
+        behaviorTitle: cleanReason,
+        description: ''
+      };
+    }
+
+    // กรณีไม่มีข้อมูลใดๆ
+    return {
+      behaviorTitle: log.type === 'DEDUCT' ? 'หักคะแนนความประพฤติ' : 'เพิ่มคะแนนความประพฤติ',
+      description: ''
+    };
+  };
 
   const [searchId, setSearchId] = useState(initialStudentId || (studentGrant?.studentId || ''));
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(() => {
@@ -307,20 +432,20 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
         const tsB = studentLatestInfoMap.get(b.id)?.latestTimestamp || 0;
         comparison = tsA - tsB;
         if (comparison === 0) {
-          comparison = a.id.localeCompare(b.id);
+          comparison = String(a.id || '').localeCompare(String(b.id || ''));
         }
       } else if (tableSortBy === 'id') {
-        comparison = a.id.localeCompare(b.id);
+        comparison = String(a.id || '').localeCompare(String(b.id || ''));
       } else if (tableSortBy === 'name') {
-        const nameA = `${a.firstName} ${a.lastName}`;
-        const nameB = `${b.firstName} ${b.lastName}`;
+        const nameA = `${a.firstName || ''} ${a.lastName || ''}`;
+        const nameB = `${b.firstName || ''} ${b.lastName || ''}`;
         comparison = nameA.localeCompare(nameB, 'th');
       } else if (tableSortBy === 'grade') {
         const gA = calculateStudentGrade(a.entryYear, a.entryLevel, currentAcademicYear);
         const gB = calculateStudentGrade(b.entryYear, b.entryLevel, currentAcademicYear);
         const gradeOrder: Record<string, number> = { 'ม.1': 1, 'ม.2': 2, 'ม.3': 3, 'ม.4': 4, 'ม.5': 5, 'ม.6': 6 };
         const diff = (gradeOrder[gA.grade] || 99) - (gradeOrder[gB.grade] || 99);
-        comparison = diff !== 0 ? diff : a.room - b.room;
+        comparison = diff !== 0 ? diff : (Number(a.room) || 0) - (Number(b.room) || 0);
       } else if (tableSortBy === 'currentScore') {
         comparison = a.currentScore - b.currentScore;
       }
@@ -882,11 +1007,20 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                 </div>
 
                 {/* Score Tiles */}
-                <div className="grid grid-cols-2 gap-3 pt-2">
+                <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-2">
+                  {/* Deducted Score Bento Tile */}
+                  <div className="bg-rose-50/60 p-2.5 sm:p-3 rounded-xl border border-rose-100 flex flex-col justify-center items-center text-center">
+                    <span className="text-[10px] sm:text-[11px] text-rose-700 font-medium mb-1 truncate max-w-full">คะแนนที่ถูกหักปัจจุบัน</span>
+                    <span className="text-2xl sm:text-3xl font-black font-mono text-rose-600">
+                      {Math.max(0, 100 - currentStudent.currentScore)}
+                    </span>
+                    <span className="text-[10px] text-rose-400 mt-0.5">คะแนน</span>
+                  </div>
+
                   {/* Current Score Bento Tile */}
-                  <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 flex flex-col justify-center items-center text-center">
-                    <span className="text-[11px] text-slate-500 font-medium mb-1">คะแนนปัจจุบัน</span>
-                    <span className={`text-3xl font-black font-mono ${
+                  <div className="bg-slate-50 p-2.5 sm:p-3 rounded-xl border border-slate-100 flex flex-col justify-center items-center text-center">
+                    <span className="text-[10px] sm:text-[11px] text-slate-500 font-medium mb-1 truncate max-w-full">คะแนนปัจจุบัน</span>
+                    <span className={`text-2xl sm:text-3xl font-black font-mono ${
                       currentStudent.currentScore <= 50
                         ? 'text-rose-600'
                         : currentStudent.currentScore <= 70
@@ -899,12 +1033,12 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                   </div>
 
                   {/* Status / Banked Points Bento Tile */}
-                  <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 flex flex-col justify-center items-center text-center">
-                    <span className="text-[11px] text-slate-500 font-medium mb-1">คะแนนสะสมสำรอง</span>
-                    <span className="text-3xl font-black font-mono text-emerald-600">
+                  <div className="bg-emerald-50/60 p-2.5 sm:p-3 rounded-xl border border-emerald-100 flex flex-col justify-center items-center text-center">
+                    <span className="text-[10px] sm:text-[11px] text-emerald-700 font-medium mb-1 truncate max-w-full">คะแนนสะสมสำรอง</span>
+                    <span className="text-2xl sm:text-3xl font-black font-mono text-emerald-600">
                       +{currentStudent.bankedPoints || 0}
                     </span>
-                    <span className="text-[10px] text-slate-400 mt-0.5">แต้มสะสมความดี</span>
+                    <span className="text-[10px] text-emerald-600/70 mt-0.5">แต้มสะสม</span>
                   </div>
                 </div>
 
@@ -1074,13 +1208,12 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                     <table className="w-full text-left text-xs">
                       <thead className="bg-slate-50 text-slate-600 text-[11px] uppercase border-b border-slate-100">
                         <tr>
-                          <th className="py-2.5 px-3">วันที่ / เวลา</th>
-                          <th className="py-2.5 px-3">ประเภท</th>
-                          <th className="py-2.5 px-3">รายการพฤติกรรม / เหตุผล</th>
-                          <th className="py-2.5 px-3 text-right">คะแนน</th>
-                          <th className="py-2.5 px-3 text-center">คงเหลือ</th>
+                          <th className="py-2.5 px-3 whitespace-nowrap">วันที่ / เวลา</th>
+                          <th className="py-2.5 px-2.5 whitespace-nowrap">ประเภท</th>
+                          <th className="py-2.5 px-3">รายละเอียด</th>
+                          <th className="py-2.5 px-2 text-right whitespace-nowrap">คะแนน</th>
                           {canManageLogs && (
-                            <th className="py-2.5 px-3 text-center w-20">จัดการ</th>
+                            <th className="py-2.5 px-2 text-center w-20">จัดการ</th>
                           )}
                           <th className="py-2.5 px-2 text-center w-8"></th>
                         </tr>
@@ -1089,6 +1222,8 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                         {paginatedLogs.map(log => {
                           const isDeduct = log.type === 'DEDUCT';
                           const isExpanded = expandedLogIds.has(log.id);
+                          const deductedAfter = Math.max(0, 100 - (log.scoreAfter ?? 100));
+                          const behaviorInfo = getLogBehaviorInfo(log);
 
                           return (
                             <React.Fragment key={log.id}>
@@ -1101,7 +1236,7 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                                 <td className="py-2.5 px-3 whitespace-nowrap text-slate-600 font-medium">
                                   {formatThaiDate(log.recordedAt, 'short')}
                                 </td>
-                                <td className="py-2.5 px-3 whitespace-nowrap">
+                                <td className="py-2.5 px-2.5 whitespace-nowrap">
                                   <span
                                     className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                                       isDeduct
@@ -1112,21 +1247,22 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                                     {isDeduct ? 'หักคะแนน' : 'เพิ่มคะแนน'}
                                   </span>
                                 </td>
-                                <td className="py-2.5 px-3 text-slate-800 max-w-xs truncate font-medium">
-                                  {log.reason}
+                                <td className="py-2.5 px-3 min-w-[200px] max-w-xs">
+                                  {/* แถวบน: หัวข้อพฤติกรรม (แสดงชื่อ "หัวข้อ / ชื่อพฤติกรรมมาตรฐาน" ไม่ใช่หมวดหมู่พฤติกรรม) */}
+                                  <div className="font-bold text-slate-800 text-xs truncate" title={behaviorInfo.behaviorTitle}>
+                                    {behaviorInfo.behaviorTitle}
+                                  </div>
+                                  {/* แถวล่าง: รายการพฤติกรรม / เหตุผล (แสดง "รายละเอียดพฤติกรรม / เกณฑ์การพิจารณา" ถ้ามีให้แสดง ไม่มีปล่อยว่าง) */}
+                                  {behaviorInfo.description ? (
+                                    <div className="text-slate-500 text-[11px] truncate mt-0.5" title={behaviorInfo.description}>
+                                      {behaviorInfo.description}
+                                    </div>
+                                  ) : null}
                                 </td>
-                                <td className="py-2.5 px-3 text-right font-mono font-bold whitespace-nowrap">
+                                <td className="py-2.5 px-2 text-right font-mono font-bold whitespace-nowrap">
                                   <span className={isDeduct ? 'text-rose-600' : 'text-emerald-600'}>
                                     {isDeduct ? `-${log.points}` : `+${log.points}`}
                                   </span>
-                                </td>
-                                <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-700 whitespace-nowrap">
-                                  <span>{log.scoreAfter}</span>
-                                  {typeof log.bankedAfter === 'number' && log.bankedAfter > 0 && (
-                                    <span className="block text-[10px] text-emerald-600 font-normal">
-                                      (+{log.bankedAfter} สำรอง)
-                                    </span>
-                                  )}
                                 </td>
                                 {canManageLogs && (
                                   <td className="py-2.5 px-2 text-center whitespace-nowrap" onClick={e => e.stopPropagation()}>
@@ -1162,8 +1298,8 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                               {/* Expanded Row Details */}
                               {isExpanded && (
                                 <tr className="bg-slate-50/80">
-                                  <td colSpan={canManageLogs ? 7 : 6} className="p-3 border-t border-slate-100">
-                                    <div className="space-y-2.5">
+                                  <td colSpan={canManageLogs ? 6 : 5} className="p-3.5 border-t border-slate-100">
+                                    <div className="space-y-3">
                                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600">
                                         <div>
                                           <span className="text-slate-400 block text-[10px]">ผู้บันทึก:</span>
@@ -1175,6 +1311,44 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                                             {isDeduct ? `หัก ${log.points} คะแนน` : `เพิ่ม ${log.points} คะแนน`}
                                             {log.bankedPointsDelta !== 0 && ` (สำรอง ${log.bankedPointsDelta > 0 ? `+${log.bankedPointsDelta}` : log.bankedPointsDelta})`}
                                           </span>
+                                        </div>
+                                      </div>
+
+                                      {/* Snapshot score cards in expanded row */}
+                                      <div className="grid grid-cols-3 gap-2 p-2.5 bg-white rounded-xl border border-slate-200/80 text-center">
+                                        <div className="p-1.5 bg-rose-50/50 rounded-lg border border-rose-100/70">
+                                          <span className="text-[10px] text-rose-700 block font-medium">คะแนนที่ถูกหักปัจจุบัน</span>
+                                          <span className="font-mono font-black text-rose-600 text-sm">
+                                            {deductedAfter > 0 ? `-${deductedAfter}` : '0'}
+                                          </span>
+                                        </div>
+                                        <div className="p-1.5 bg-slate-50 rounded-lg border border-slate-200/70">
+                                          <span className="text-[10px] text-slate-600 block font-medium">คะแนนปัจจุบัน</span>
+                                          <span className="font-mono font-black text-slate-800 text-sm">
+                                            {log.scoreAfter ?? 100}
+                                          </span>
+                                        </div>
+                                        <div className="p-1.5 bg-emerald-50/50 rounded-lg border border-emerald-100/70">
+                                          <span className="text-[10px] text-emerald-700 block font-medium">คะแนนสะสมสำรอง</span>
+                                          <span className="font-mono font-black text-emerald-600 text-sm">
+                                            +{(log.bankedAfter ?? 0)}
+                                          </span>
+                                        </div>
+                                      </div>
+
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600 pt-1 border-t border-slate-200/60">
+                                        <div>
+                                          <span className="text-slate-400 block text-[10px]">หัวข้อ / ชื่อพฤติกรรมมาตรฐาน:</span>
+                                          <span className="font-bold text-slate-800">{behaviorInfo.behaviorTitle}</span>
+                                          {log.category && (
+                                            <span className="inline-block ml-1.5 text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                                              หมวด: {log.category}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div>
+                                          <span className="text-slate-400 block text-[10px]">รายละเอียดพฤติกรรม / เกณฑ์การพิจารณา:</span>
+                                          <span className="font-bold text-slate-800">{behaviorInfo.description || '-'}</span>
                                         </div>
                                       </div>
 
@@ -1231,9 +1405,25 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                 )}
               </div>
 
-              <div className="text-[11px] text-slate-400 pt-3 border-t border-slate-100 flex items-center justify-between">
-                <span>แสดง {paginatedLogs.length} จากทั้งหมด {filteredLogs.length} รายการ</span>
-                <span>รวมหัก -{totalDeducted} แต้ม • รวมเพิ่ม +{totalAdded} แต้ม</span>
+              <div className="text-xs text-slate-500 pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <span className="text-[11px] text-slate-500">
+                  แสดง <strong className="text-slate-700 font-bold">{paginatedLogs.length}</strong> จากทั้งหมด <strong className="text-slate-700 font-bold">{filteredLogs.length}</strong> รายการ
+                </span>
+                <div className="flex items-center gap-2 flex-wrap text-xs">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 font-bold shadow-2xs">
+                    <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0"></span>
+                    <span>รวมหัก</span>
+                    <span className="font-mono text-sm font-black text-rose-600">-{totalDeducted}</span>
+                    <span>แต้ม</span>
+                  </span>
+                  <span className="text-slate-300 font-bold hidden sm:inline">•</span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold shadow-2xs">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                    <span>รวมเพิ่ม</span>
+                    <span className="font-mono text-sm font-black text-emerald-600">+{totalAdded}</span>
+                    <span>แต้ม</span>
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -1648,15 +1838,15 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                                         </div>
                                       </div>
                                       <div className="p-2 bg-emerald-50 rounded-xl border border-emerald-100">
-                                        <div className="text-[10px] text-emerald-600">คะแนนสำรอง</div>
+                                        <div className="text-[10px] text-emerald-600">คะแนนสะสมสำรอง</div>
                                         <div className="text-base font-black text-emerald-700 font-mono">
                                           +{student.bankedPoints ?? 0}
                                         </div>
                                       </div>
                                       <div className="p-2 bg-rose-50 rounded-xl border border-rose-100">
-                                        <div className="text-[10px] text-rose-600">หักสะสมทั้งหมด</div>
+                                        <div className="text-[10px] text-rose-600">คะแนนที่ถูกหักปัจจุบัน</div>
                                         <div className="text-base font-black text-rose-700 font-mono">
-                                          -{student.totalDeductedPoints ?? 0}
+                                          -{student.totalDeductedPoints ?? Math.max(0, 100 - student.currentScore)}
                                         </div>
                                       </div>
                                       <div className="p-2 bg-slate-50 rounded-xl border border-slate-100">
@@ -1681,19 +1871,25 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                                         </div>
                                       ) : (
                                         <div className="space-y-1.5 max-h-28 overflow-y-auto">
-                                          {sLogs.slice(0, 3).map(log => (
-                                            <div key={log.id} className="text-xs p-1.5 bg-slate-50 rounded-lg flex items-center justify-between gap-2">
-                                              <div className="truncate flex-1">
-                                                <span className="text-slate-400 text-[10px] mr-1">{formatThaiDate(log.recordedAt, 'short')}:</span>
-                                                <span className="text-slate-700 font-medium">{log.reason}</span>
+                                          {sLogs.slice(0, 3).map(log => {
+                                            const bInfo = getLogBehaviorInfo(log);
+                                            return (
+                                              <div key={log.id} className="text-xs p-1.5 bg-slate-50 rounded-lg flex items-center justify-between gap-2">
+                                                <div className="truncate flex-1">
+                                                  <span className="text-slate-400 text-[10px] mr-1">{formatThaiDate(log.recordedAt, 'short')}:</span>
+                                                  <span className="text-slate-700 font-medium">{bInfo.behaviorTitle}</span>
+                                                  {bInfo.description ? (
+                                                    <span className="text-slate-400 text-[10px] ml-1">({bInfo.description})</span>
+                                                  ) : null}
+                                                </div>
+                                                <span className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded flex-shrink-0 ${
+                                                  log.type === 'DEDUCT' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
+                                                }`}>
+                                                  {log.type === 'DEDUCT' ? `-${log.points}` : `+${log.points}`}
+                                                </span>
                                               </div>
-                                              <span className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded flex-shrink-0 ${
-                                                log.type === 'DEDUCT' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
-                                              }`}>
-                                                {log.type === 'DEDUCT' ? `-${log.points}` : `+${log.points}`}
-                                              </span>
-                                            </div>
-                                          ))}
+                                            );
+                                          })}
                                         </div>
                                       )}
                                     </div>

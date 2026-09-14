@@ -1017,6 +1017,7 @@ export default function App() {
             <StudentLookup
               students={students}
               conductLogs={conductLogs}
+              standardBehaviors={standardBehaviors}
               currentAcademicYear={systemSettings.currentAcademicYear}
               currentTerm={systemSettings.currentTerm}
               currentUser={currentUser}

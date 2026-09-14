@@ -68,7 +68,7 @@ export const HonourRollModal: React.FC<HonourRollModalProps> = ({
       if (a.category.type !== b.category.type) {
         return a.category.type === 'EXCELLENT' ? -1 : 1;
       }
-      return (b.student.bankedPoints ?? 0) - (a.student.bankedPoints ?? 0) || a.student.id.localeCompare(b.student.id);
+      return (b.student.bankedPoints ?? 0) - (a.student.bankedPoints ?? 0) || String(a.student.id || '').localeCompare(String(b.student.id || ''));
     });
   }, [honourStudents, activeLevelTab, categoryFilter]);
 

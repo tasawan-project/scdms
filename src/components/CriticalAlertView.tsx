@@ -66,7 +66,7 @@ export const CriticalAlertView: React.FC<CriticalAlertViewProps> = ({
       const g = calculateStudentGrade(s.entryYear, s.entryLevel, currentAcademicYear);
       const label = `${g.grade}/${s.room}`;
       if (!map.has(label)) {
-        map.set(label, { label, grade: g.grade, room: s.room, level: g.level, count: 1 });
+        map.set(label, { label, grade: g.grade, room: String(s.room ?? ''), level: g.level, count: 1 });
       } else {
         map.get(label)!.count += 1;
       }
@@ -77,7 +77,7 @@ export const CriticalAlertView: React.FC<CriticalAlertViewProps> = ({
       const gA = order.indexOf(a.grade);
       const gB = order.indexOf(b.grade);
       if (gA !== gB) return gA - gB;
-      return a.room.localeCompare(b.room, undefined, { numeric: true });
+      return String(a.room).localeCompare(String(b.room), undefined, { numeric: true });
     });
   }, [students, currentAcademicYear]);
 
@@ -100,9 +100,9 @@ export const CriticalAlertView: React.FC<CriticalAlertViewProps> = ({
     });
 
     // Sort ascending by score (lowest score first)
-    critical.sort((a, b) => a.currentScore - b.currentScore || a.id.localeCompare(b.id));
-    watch.sort((a, b) => a.currentScore - b.currentScore || a.id.localeCompare(b.id));
-    caution.sort((a, b) => a.currentScore - b.currentScore || a.id.localeCompare(b.id));
+    critical.sort((a, b) => a.currentScore - b.currentScore || String(a.id || '').localeCompare(String(b.id || '')));
+    watch.sort((a, b) => a.currentScore - b.currentScore || String(a.id || '').localeCompare(String(b.id || '')));
+    caution.sort((a, b) => a.currentScore - b.currentScore || String(a.id || '').localeCompare(String(b.id || '')));
 
     return { criticalList: critical, watchList: watch, cautionList: caution };
   }, [students, systemSettings]);

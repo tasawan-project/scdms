@@ -479,8 +479,8 @@ export function getOutstandingStudents(
   });
 
   // Sort by banked points descending, then by student id
-  junior.sort((a, b) => (b.bankedPoints ?? 0) - (a.bankedPoints ?? 0) || a.id.localeCompare(b.id));
-  senior.sort((a, b) => (b.bankedPoints ?? 0) - (a.bankedPoints ?? 0) || a.id.localeCompare(b.id));
+  junior.sort((a, b) => (b.bankedPoints ?? 0) - (a.bankedPoints ?? 0) || String(a.id || '').localeCompare(String(b.id || '')));
+  senior.sort((a, b) => (b.bankedPoints ?? 0) - (a.bankedPoints ?? 0) || String(a.id || '').localeCompare(String(b.id || '')));
 
   return { junior, senior };
 }
