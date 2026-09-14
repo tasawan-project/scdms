@@ -1275,10 +1275,11 @@ export async function fetchStandardBehaviors(): Promise<StandardConductBehavior[
       });
     });
 
-    // Sort by type: DEDUCT first, then category, then points
+    // Sort by type: DEDUCT first, then title (ชื่อพฤติกรรม ก-ฮ), then points
     return items.sort((a, b) => {
       if (a.type !== b.type) return a.type === 'DEDUCT' ? -1 : 1;
-      if (a.category !== b.category) return (a.category || '').localeCompare(b.category || '', 'th');
+      const titleCompare = (a.title || '').localeCompare(b.title || '', 'th');
+      if (titleCompare !== 0) return titleCompare;
       return (a.points || 0) - (b.points || 0);
     });
   } catch (error) {

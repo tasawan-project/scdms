@@ -76,7 +76,7 @@ export const StandardBehaviorManager: React.FC<StandardBehaviorManagerProps> = (
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'th'));
   }, [behaviors]);
 
-  // Filtered behaviors
+  // Filtered behaviors (sorted by behavior title: ก-ฮ)
   const filteredBehaviors = useMemo(() => {
     const seen = new Set<string>();
     return behaviors.filter(b => {
@@ -92,6 +92,10 @@ export const StandardBehaviorManager: React.FC<StandardBehaviorManagerProps> = (
         if (!matchTitle && !matchCat && !matchDesc) return false;
       }
       return true;
+    }).sort((a, b) => {
+      const titleCompare = (a.title || '').localeCompare(b.title || '', 'th');
+      if (titleCompare !== 0) return titleCompare;
+      return (Number(a.points) || 0) - (Number(b.points) || 0);
     });
   }, [behaviors, filterType, selectedCategory, searchQuery]);
 

@@ -140,7 +140,12 @@ export const ConductActionModal: React.FC<ConductActionModalProps> = ({
         result.push(b);
       }
     }
-    return result;
+    // เรียงตามชื่อพฤติกรรมมาตรฐาน (ก-ฮ)
+    return result.sort((a, b) => {
+      const titleCompare = (a.title || '').localeCompare(b.title || '', 'th');
+      if (titleCompare !== 0) return titleCompare;
+      return (Number(a.points) || 0) - (Number(b.points) || 0);
+    });
   }, [dbBehaviors, type]);
 
   // Distinct categories in current type
@@ -149,10 +154,10 @@ export const ConductActionModal: React.FC<ConductActionModalProps> = ({
     currentTypeBehaviors.forEach(b => {
       if (b.category) cats.add(b.category);
     });
-    return Array.from(cats);
+    return Array.from(cats).sort((a, b) => a.localeCompare(b, 'th'));
   }, [currentTypeBehaviors]);
 
-  // Filtered by search & category
+  // Filtered by search & category, sorted by title (ชื่อพฤติกรรม ก-ฮ)
   const filteredTypeBehaviors = useMemo(() => {
     return currentTypeBehaviors.filter(b => {
       if (selectedPresetCategory !== 'ALL' && b.category !== selectedPresetCategory) return false;
@@ -164,6 +169,10 @@ export const ConductActionModal: React.FC<ConductActionModalProps> = ({
         if (!matchTitle && !matchCat && !matchDesc) return false;
       }
       return true;
+    }).sort((a, b) => {
+      const titleCompare = (a.title || '').localeCompare(b.title || '', 'th');
+      if (titleCompare !== 0) return titleCompare;
+      return (Number(a.points) || 0) - (Number(b.points) || 0);
     });
   }, [currentTypeBehaviors, selectedPresetCategory, behaviorSearch]);
 
