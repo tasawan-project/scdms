@@ -2006,6 +2006,7 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
           currentAcademicYear={currentAcademicYear}
           currentTerm={currentTerm}
           maxBankedPoints={systemSettings?.maxBankedPointsCap ?? systemSettings?.maxBankedPoints ?? 50}
+          standardBehaviors={standardBehaviors}
           onClose={() => setEditingLog(null)}
           onSave={async (updatedLog, updatedStudent) => {
             if (onEditConductLog) {
