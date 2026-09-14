@@ -1209,6 +1209,7 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                       <thead className="bg-slate-50 text-slate-600 text-[11px] uppercase border-b border-slate-100">
                         <tr>
                           <th className="py-2.5 px-3 whitespace-nowrap">วันที่ / เวลา</th>
+                          <th className="py-2.5 px-2.5 whitespace-nowrap">วันที่กระทำผิด</th>
                           <th className="py-2.5 px-2.5 whitespace-nowrap">ประเภท</th>
                           <th className="py-2.5 px-3">รายละเอียด</th>
                           <th className="py-2.5 px-2 text-right whitespace-nowrap">คะแนน</th>
@@ -1235,6 +1236,15 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                               >
                                 <td className="py-2.5 px-3 whitespace-nowrap text-slate-600 font-medium">
                                   {formatThaiDate(log.recordedAt, 'short')}
+                                </td>
+                                <td className="py-2.5 px-2.5 whitespace-nowrap text-slate-700 font-medium">
+                                  {log.violationDate ? (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200/60 font-semibold text-[11px]">
+                                      {formatThaiDate(log.violationDate, 'short')}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400">-</span>
+                                  )}
                                 </td>
                                 <td className="py-2.5 px-2.5 whitespace-nowrap">
                                   <span
@@ -1298,12 +1308,18 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                               {/* Expanded Row Details */}
                               {isExpanded && (
                                 <tr className="bg-slate-50/80">
-                                  <td colSpan={canManageLogs ? 6 : 5} className="p-3.5 border-t border-slate-100">
+                                  <td colSpan={canManageLogs ? 7 : 6} className="p-3.5 border-t border-slate-100">
                                     <div className="space-y-3">
-                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600">
+                                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-slate-600">
                                         <div>
                                           <span className="text-slate-400 block text-[10px]">ผู้บันทึก:</span>
                                           <span className="font-bold text-slate-800">{log.recordedByName || log.recordedBy}</span>
+                                        </div>
+                                        <div>
+                                          <span className="text-slate-400 block text-[10px]">วันที่กระทำผิด / เกิดเหตุ:</span>
+                                          <span className="font-bold text-slate-800">
+                                            {log.violationDate ? formatThaiDate(log.violationDate, 'short') : '-'}
+                                          </span>
                                         </div>
                                         <div>
                                           <span className="text-slate-400 block text-[10px]">ผลต่อคะแนน:</span>
