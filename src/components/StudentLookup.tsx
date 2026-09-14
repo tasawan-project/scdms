@@ -1208,8 +1208,8 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                     <table className="w-full text-left text-xs">
                       <thead className="bg-slate-50 text-slate-600 text-[11px] uppercase border-b border-slate-100">
                         <tr>
-                          <th className="py-2.5 px-3 whitespace-nowrap">วันที่ / เวลา</th>
-                          <th className="py-2.5 px-2.5 whitespace-nowrap">วันที่กระทำผิด</th>
+                          <th className="py-2.5 px-3 whitespace-nowrap">นำเข้าระบบ</th>
+                          <th className="py-2.5 px-2.5 whitespace-nowrap">บันทึกกิจกรรม</th>
                           <th className="py-2.5 px-2.5 whitespace-nowrap">ประเภท</th>
                           <th className="py-2.5 px-3">รายละเอียด</th>
                           <th className="py-2.5 px-2 text-right whitespace-nowrap">คะแนน</th>
@@ -1316,7 +1316,7 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                                           <span className="font-bold text-slate-800">{log.recordedByName || log.recordedBy}</span>
                                         </div>
                                         <div>
-                                          <span className="text-slate-400 block text-[10px]">วันที่กระทำผิด / เกิดเหตุ:</span>
+                                          <span className="text-slate-400 block text-[10px]">บันทึกกิจกรรม:</span>
                                           <span className="font-bold text-slate-800">
                                             {log.violationDate ? formatThaiDate(log.violationDate, 'short') : '-'}
                                           </span>
