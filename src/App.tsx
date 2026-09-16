@@ -393,6 +393,14 @@ export default function App() {
     document.title = `${systemSettings.appNameTh || 'ระบบความประพฤตินักเรียน'} - ${
       systemSettings.schoolNameTh || systemSettings.schoolName
     }`;
+
+    // Update favicon tab icon
+    const iconLinks = document.querySelectorAll("link[rel*='icon']");
+    if (iconLinks.length > 0) {
+      iconLinks.forEach((link) => {
+        (link as HTMLLinkElement).href = systemSettings.logoUrl || '/favicon.svg';
+      });
+    }
   }, [systemSettings]);
 
   // Auth Handlers (Strict session-based: login terminates upon browser close or logout)

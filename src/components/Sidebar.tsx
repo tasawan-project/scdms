@@ -23,7 +23,8 @@ import {
   GraduationCap,
   Key,
   ShieldCheck,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Settings
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -452,7 +453,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="w-full flex items-center justify-between px-3 py-2 text-xs font-black text-slate-500 uppercase tracking-wider hover:text-slate-800 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-2">
-                <School className="w-3.5 h-3.5 text-slate-400" />
+                <Settings className="w-3.5 h-3.5 text-slate-400" />
                 <span>ตั้งค่าระบบ</span>
               </div>
               {settingsMgmtOpen ? (

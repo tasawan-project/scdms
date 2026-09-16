@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4F46E5" />
+      <stop offset="50%" stop-color="#4338CA" />
+      <stop offset="100%" stop-color="#312E81" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE047" />
+      <stop offset="100%" stop-color="#F59E0B" />
+    </linearGradient>
+    <filter id="dropShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-opacity="0.25" />
+    </filter>
+  </defs>
+
+  <!-- Base Rounded Container -->
+  <rect x="8" y="8" width="112" height="112" rx="28" fill="url(#bgGrad)" />
+  <rect x="8" y="8" width="112" height="112" rx="28" fill="none" stroke="#818CF8" stroke-width="2.5" stroke-opacity="0.6" />
+
+  <!-- Shield Shape -->
+  <path d="M64 24 L96 36 V62 C96 84 82 100 64 106 C46 100 32 84 32 62 V36 Z" 
+        fill="#1E1B4B" 
+        fill-opacity="0.45" 
+        stroke="url(#goldGrad)" 
+        stroke-width="3" 
+        stroke-linejoin="round" />
+
+  <!-- Academic Graduation Cap (Mortarboard) -->
+  <g filter="url(#dropShadow)">
+    <!-- Cap Top Diamond -->
+    <path d="M64 40 L92 51 L64 62 L36 51 Z" fill="#FFFFFF" />
+    <!-- Cap Skull Base -->
+    <path d="M46 56 V67 C46 73 54 78 64 78 C74 78 82 73 82 67 V56 L64 63 Z" fill="#E0E7FF" />
+    <!-- Tassel -->
+    <path d="M86 53.5 V70 L83 72.5 L86 75 L89 72.5 Z" fill="url(#goldGrad)" />
+    <circle cx="64" cy="51" r="2.5" fill="url(#goldGrad)" />
+  </g>
+
+  <!-- Golden 5-Point Star (Excellence & Conduct) -->
+  <path d="M64 81 L66.8 87.2 L73.5 87.8 L68.4 92.2 L69.9 98.8 L64 95.3 L58.1 98.8 L59.6 92.2 L54.5 87.8 L61.2 87.2 Z" 
+        fill="url(#goldGrad)" />
+</svg>
