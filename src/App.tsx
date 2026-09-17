@@ -63,7 +63,8 @@ import {
   ACCESS_GRANTS_COLLECTION,
   ADVISORS_COLLECTION,
   STANDARD_BEHAVIORS_COLLECTION,
-  DEFAULT_SETTINGS
+  DEFAULT_SETTINGS,
+  DEFAULT_INITIAL_USERS
 } from './firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { INITIAL_SAMPLE_STUDENTS, INITIAL_SAMPLE_LOGS, INITIAL_SAMPLE_ADVISORS } from './data/mockSampleData';
@@ -130,9 +131,15 @@ export default function App() {
   const [users, setUsers] = useState<AppUser[]>(() => {
     try {
       const cached = localStorage.getItem('conduct_cached_users');
-      return cached ? JSON.parse(cached) : [];
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+      return DEFAULT_INITIAL_USERS;
     } catch {
-      return [];
+      return DEFAULT_INITIAL_USERS;
     }
   });
   const [accessGrants, setAccessGrants] = useState<StudentAccessGrant[]>([]);
@@ -296,8 +303,17 @@ export default function App() {
             snapshot.forEach((docSnap) => {
               list.push(docSnap.data() as AppUser);
             });
-            setUsers(list);
-            try { localStorage.setItem('conduct_cached_users', JSON.stringify(list)); } catch {}
+            setUsers(prev => {
+              const merged = [...list];
+              // Ensure local additions are preserved
+              for (const p of prev) {
+                if (!merged.some(m => m.id === p.id || m.username.toLowerCase() === p.username.toLowerCase())) {
+                  merged.push(p);
+                }
+              }
+              try { localStorage.setItem('conduct_cached_users', JSON.stringify(merged)); } catch {}
+              return merged;
+            });
           }
         },
         (err) => {
@@ -376,9 +392,18 @@ export default function App() {
           setSystemSettings(settingsRes.value);
           try { localStorage.setItem('conduct_cached_settings', JSON.stringify(settingsRes.value)); } catch {}
         }
-        if (usersRes.status === 'fulfilled' && usersRes.value) {
-          setUsers(usersRes.value);
-          try { localStorage.setItem('conduct_cached_users', JSON.stringify(usersRes.value)); } catch {}
+        if (usersRes.status === 'fulfilled' && usersRes.value && usersRes.value.length > 0) {
+          setUsers(prev => {
+            const fetched = usersRes.value;
+            const merged = [...fetched];
+            for (const p of prev) {
+              if (!merged.some(m => m.id === p.id || m.username.toLowerCase() === p.username.toLowerCase())) {
+                merged.push(p);
+              }
+            }
+            try { localStorage.setItem('conduct_cached_users', JSON.stringify(merged)); } catch {}
+            return merged;
+          });
         }
         if (grantsRes.status === 'fulfilled' && grantsRes.value) {
           setAccessGrants(grantsRes.value);
@@ -719,13 +744,17 @@ export default function App() {
     }
     await saveAppUser(user);
     setUsers(prev => {
-      const idx = prev.findIndex(u => u.id === user.id);
+      const idx = prev.findIndex(u => u.id === user.id || u.username?.toLowerCase() === user.username?.toLowerCase());
+      let updated: AppUser[];
       if (idx >= 0) {
         const copy = [...prev];
         copy[idx] = user;
-        return copy;
+        updated = copy;
+      } else {
+        updated = [...prev, user];
       }
-      return [...prev, user];
+      try { localStorage.setItem('conduct_cached_users', JSON.stringify(updated)); } catch {}
+      return updated;
     });
   };
 
@@ -737,7 +766,11 @@ export default function App() {
       }
     }
     await deleteAppUser(userId);
-    setUsers(prev => prev.filter(u => u.id !== userId));
+    setUsers(prev => {
+      const updated = prev.filter(u => u.id !== userId);
+      try { localStorage.setItem('conduct_cached_users', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
   };
 
   const handleRevokeGrant = async (grantId: string) => {

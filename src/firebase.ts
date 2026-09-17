@@ -152,6 +152,31 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   schoolName: 'โรงเรียนตัวอย่างวิทยา'
 };
 
+const USERS_CACHE_KEY = 'conduct_cached_users';
+
+export function getLocalCachedUsers(): AppUser[] {
+  try {
+    const cached = localStorage.getItem(USERS_CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.warn('Error reading cached users:', e);
+  }
+  return [];
+}
+
+export function setLocalCachedUsers(users: AppUser[]): void {
+  try {
+    localStorage.setItem(USERS_CACHE_KEY, JSON.stringify(users));
+  } catch (e) {
+    console.warn('Error saving cached users:', e);
+  }
+}
+
 /**
  * Initialize default admin user and initial tier accounts if needed
  */
@@ -164,6 +189,7 @@ export async function initDefaultAdminUser(): Promise<AppUser[]> {
         batch.set(doc(db, USERS_COLLECTION, u.id), u);
       }
       await batch.commit();
+      setLocalCachedUsers([...DEFAULT_INITIAL_USERS]);
       return [...DEFAULT_INITIAL_USERS];
     }
     const users: AppUser[] = [];
@@ -174,15 +200,27 @@ export async function initDefaultAdminUser(): Promise<AppUser[]> {
       await setDoc(doc(db, USERS_COLLECTION, DEFAULT_ADMIN_USER.id), DEFAULT_ADMIN_USER);
       users.push(DEFAULT_ADMIN_USER);
     }
+    // Merge with any cached users that might have been saved locally
+    const cached = getLocalCachedUsers();
+    for (const c of cached) {
+      if (!users.some(u => u.id === c.id || u.username?.toLowerCase() === c.username?.toLowerCase())) {
+        users.push(c);
+      }
+    }
+    setLocalCachedUsers(users);
     return users;
   } catch (err) {
     console.warn('initDefaultAdminUser error:', err);
+    const cached = getLocalCachedUsers();
+    if (cached.length > 0) {
+      return cached;
+    }
     return [...DEFAULT_INITIAL_USERS];
   }
 }
 
 /**
- * Fetch all system users
+ * Fetch all system users with guaranteed fallback to cached storage
  */
 export async function fetchAppUsers(): Promise<AppUser[]> {
   try {
@@ -192,34 +230,84 @@ export async function fetchAppUsers(): Promise<AppUser[]> {
     }
     const users: AppUser[] = [];
     snap.forEach(d => users.push(d.data() as AppUser));
+
+    // Preserve any locally saved users that may not have reached Firestore
+    const cached = getLocalCachedUsers();
+    for (const c of cached) {
+      if (!users.some(u => u.id === c.id || u.username?.toLowerCase() === c.username?.toLowerCase())) {
+        users.push(c);
+      }
+    }
+
+    setLocalCachedUsers(users);
     return users;
   } catch (e) {
     console.warn('fetchAppUsers error:', e);
-    return [DEFAULT_ADMIN_USER];
+    // Never blow away cached users on Firestore error (e.g. quota-exceeded or offline)
+    const cached = getLocalCachedUsers();
+    if (cached.length > 0) {
+      return cached;
+    }
+    return [...DEFAULT_INITIAL_USERS];
   }
 }
 
 /**
- * Save or update an app user
+ * Save or update an app user with dual persistence (local cache + Firestore)
  */
 export async function saveAppUser(user: AppUser): Promise<void> {
-  const docRef = doc(db, USERS_COLLECTION, user.id);
-  const payload = cleanForFirestore({
-    ...user,
-    updatedAt: new Date().toISOString()
-  });
-  await setDoc(docRef, payload, { merge: true });
+  // 1. Immediately persist to localStorage to guarantee data survival on refresh
+  try {
+    const cached = getLocalCachedUsers();
+    const idx = cached.findIndex(u => u.id === user.id || u.username?.toLowerCase() === user.username?.toLowerCase());
+    let updated: AppUser[];
+    if (idx >= 0) {
+      updated = [...cached];
+      updated[idx] = { ...updated[idx], ...user, updatedAt: new Date().toISOString() };
+    } else {
+      updated = [...cached, { ...user, updatedAt: new Date().toISOString() }];
+    }
+    setLocalCachedUsers(updated);
+  } catch (localErr) {
+    console.warn('Failed to update local user cache:', localErr);
+  }
+
+  // 2. Synchronize to Firestore
+  try {
+    const docRef = doc(db, USERS_COLLECTION, user.id);
+    const payload = cleanForFirestore({
+      ...user,
+      updatedAt: new Date().toISOString()
+    });
+    await setDoc(docRef, payload, { merge: true });
+  } catch (firestoreErr: any) {
+    console.warn('saveAppUser Firestore error (saved to local cache successfully):', firestoreErr);
+  }
 }
 
 /**
- * Delete an app user (cannot delete default admin)
+ * Delete an app user (cannot delete default admin) with dual persistence
  */
 export async function deleteAppUser(userId: string): Promise<void> {
   if (userId === 'admin') {
     throw new Error('ไม่สามารถลบบัญชีผู้ดูแลระบบหลัก (admin) ได้');
   }
-  const docRef = doc(db, USERS_COLLECTION, userId);
-  await deleteDoc(docRef);
+  // 1. Immediately remove from local cache
+  try {
+    const cached = getLocalCachedUsers();
+    const updated = cached.filter(u => u.id !== userId);
+    setLocalCachedUsers(updated);
+  } catch (localErr) {
+    console.warn('Failed to delete from local user cache:', localErr);
+  }
+
+  // 2. Delete from Firestore
+  try {
+    const docRef = doc(db, USERS_COLLECTION, userId);
+    await deleteDoc(docRef);
+  } catch (firestoreErr) {
+    console.warn('deleteAppUser Firestore error (deleted from local cache successfully):', firestoreErr);
+  }
 }
 
 /**

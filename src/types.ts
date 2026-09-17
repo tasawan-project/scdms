@@ -12,6 +12,7 @@ export interface AppUser {
   isActive: boolean;
   isSuperAdmin?: boolean; // สิทธิ์ผู้ดูแลหลัก (Super Admin)
   createdAt: string;
+  updatedAt?: string;
   lastLoginAt?: string;
 }
 

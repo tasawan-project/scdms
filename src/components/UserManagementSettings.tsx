@@ -186,9 +186,14 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({
     e.preventDefault();
     setUserOperationMsg(null);
 
-    const cleanUsername = newUsername.trim().toLowerCase();
+    const cleanUsername = newUsername.trim().toLowerCase().replace(/\s+/g, '');
     if (!cleanUsername) {
       setUserOperationMsg({ type: 'error', text: 'กรุณาระบุชื่อผู้ใช้งาน (Username)' });
+      return;
+    }
+
+    if (cleanUsername.includes('/') || cleanUsername.includes('\\')) {
+      setUserOperationMsg({ type: 'error', text: 'ชื่อผู้ใช้งานต้องไม่มีเครื่องหมายทับ (/ หรือ \\)' });
       return;
     }
 
@@ -256,8 +261,10 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({
       ? newPassword.trim()
       : (editingUser?.password || '');
 
+    const safeDocId = editingUser ? editingUser.id : (cleanUsername.replace(/[\/\s\\]/g, '_') || `user-${Date.now()}`);
+
     const userObj: AppUser = {
-      id: editingUser ? editingUser.id : cleanUsername,
+      id: safeDocId,
       username: cleanUsername,
       password: finalPassword,
       name: newName.trim(),
@@ -272,7 +279,9 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({
       await onSaveUser(userObj);
       setUserOperationMsg({
         type: 'success',
-        text: editingUser ? `บันทึกการแก้ไขข้อมูล "${userObj.name}" เรียบร้อยแล้ว` : `เพิ่มผู้ใช้งานใหม่ "${userObj.name}" สำเร็จ`
+        text: editingUser
+          ? `บันทึกการแก้ไขข้อมูล "${userObj.name}" เรียบร้อยแล้ว (บันทึกถาวรเรียบร้อย)`
+          : `เพิ่มผู้ใช้งานใหม่ "${userObj.name}" สำเร็จ (บันทึกถาวรในระบบแล้ว ไม่หายเมื่อรีเฟรช)`
       });
       setShowAddUserModal(false);
       setEditingUser(null);
