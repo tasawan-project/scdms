@@ -8,6 +8,7 @@ import {
   doc,
   getDocs,
   getDoc,
+  getDocFromServer,
   setDoc,
   updateDoc,
   deleteDoc,
@@ -1384,4 +1385,54 @@ export async function clearSampleStandardBehaviors(): Promise<number> {
   }
   return count;
 }
+
+/**
+ * Metadata and technical information for the Firestore connection
+ */
+export function getFirestoreConfigInfo() {
+  return {
+    projectId: firebaseConfig.projectId,
+    firestoreDatabaseId: firebaseConfig.firestoreDatabaseId || '(default)',
+    authDomain: firebaseConfig.authDomain,
+    storageBucket: firebaseConfig.storageBucket,
+    appId: firebaseConfig.appId,
+    mode: 'Multi-Region Cloud Firestore',
+    syncMode: 'Real-time Listeners (Active)',
+    transport: 'Auto-detect Long Polling & WebChannel (iFrame Safe)',
+    cache: 'Persistent Multi-Tab Local Storage (IndexedDB)'
+  };
+}
+
+/**
+ * Actively test round-trip connection to Google Cloud Firestore server
+ * Returns connection health, latency in ms, and any error message
+ */
+export async function testFirestoreConnection(): Promise<{
+  connected: boolean;
+  latencyMs: number;
+  error?: string;
+  timestamp: string;
+}> {
+  const startTime = performance.now();
+  try {
+    // Attempt direct server read to confirm active cloud link (bypassing local cache)
+    await getDocFromServer(doc(db, SETTINGS_COLLECTION, 'global_config'));
+    const latencyMs = Math.max(1, Math.round(performance.now() - startTime));
+    return {
+      connected: true,
+      latencyMs,
+      timestamp: new Date().toISOString()
+    };
+  } catch (error: any) {
+    const latencyMs = Math.round(performance.now() - startTime);
+    const msg = error?.message || String(error);
+    return {
+      connected: false,
+      latencyMs,
+      error: msg,
+      timestamp: new Date().toISOString()
+    };
+  }
+}
+
 

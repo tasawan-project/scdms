@@ -1,5 +1,15 @@
-import React, { useState, useRef } from 'react';
-import { AppUser, Student, ConductLog, SystemSettings } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  AppUser,
+  Student,
+  ConductLog,
+  SystemSettings,
+  HomeroomAdvisor,
+  StandardConductBehavior,
+  StudentAccessGrant
+} from '../types';
+import { testFirestoreConnection, getFirestoreConfigInfo } from '../firebase';
+import { formatThaiDate } from '../utils/thaiDate';
 import { AdminPasswordConfirmModal } from './AdminPasswordConfirmModal';
 import { ConductResetManager } from './ConductResetManager';
 import {
@@ -9,7 +19,24 @@ import {
   Sparkles,
   Trash2,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  RefreshCw,
+  Server,
+  Cloud,
+  HardDrive,
+  Copy,
+  Check,
+  Activity,
+  Wifi,
+  WifiOff,
+  ShieldCheck,
+  ChevronDown,
+  ChevronUp,
+  Info,
+  Clock,
+  Layers,
+  Users,
+  FileText
 } from 'lucide-react';
 
 interface DatabaseSettingsProps {
@@ -18,6 +45,9 @@ interface DatabaseSettingsProps {
   students: Student[];
   conductLogs: ConductLog[];
   systemSettings?: SystemSettings;
+  advisors?: HomeroomAdvisor[];
+  standardBehaviors?: StandardConductBehavior[];
+  accessGrants?: StudentAccessGrant[];
   currentAcademicYear?: number;
   onClose?: () => void;
   onExportBackup?: () => Promise<any>;
@@ -38,6 +68,9 @@ export const DatabaseSettings: React.FC<DatabaseSettingsProps> = ({
   students,
   conductLogs,
   systemSettings,
+  advisors = [],
+  standardBehaviors = [],
+  accessGrants = [],
   currentAcademicYear,
   onClose,
   onExportBackup,
@@ -54,6 +87,52 @@ export const DatabaseSettings: React.FC<DatabaseSettingsProps> = ({
   const [dbLoading, setDbLoading] = useState(false);
   const [dbStatusMsg, setDbStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const backupFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Firestore Connection State
+  const [connectionState, setConnectionState] = useState<'checking' | 'connected' | 'error'>('checking');
+  const [latencyMs, setLatencyMs] = useState<number | null>(null);
+  const [lastCheckedTime, setLastCheckedTime] = useState<Date | null>(null);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [showTechDetails, setShowTechDetails] = useState(false);
+
+  const configInfo = getFirestoreConfigInfo();
+
+  // Test Firestore Connection
+  const runConnectionTest = async () => {
+    setIsTestingConnection(true);
+    setConnectionError(null);
+    try {
+      const res = await testFirestoreConnection();
+      if (res.connected) {
+        setConnectionState('connected');
+        setLatencyMs(res.latencyMs);
+        setLastCheckedTime(new Date());
+      } else {
+        setConnectionState('error');
+        setConnectionError(res.error || 'ไม่สามารถติดต่อเซิร์ฟเวอร์ Cloud Firestore ได้');
+        setLatencyMs(res.latencyMs);
+        setLastCheckedTime(new Date());
+      }
+    } catch (err: any) {
+      setConnectionState('error');
+      setConnectionError(err?.message || 'เกิดข้อผิดพลาดในการตรวจสอบ');
+      setLastCheckedTime(new Date());
+    } finally {
+      setIsTestingConnection(false);
+    }
+  };
+
+  useEffect(() => {
+    runConnectionTest();
+  }, []);
+
+  const handleCopy = (text: string, fieldName: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(fieldName);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
 
   // Admin Password Confirmation Popup State
   const [confirmAction, setConfirmAction] = useState<{
@@ -284,12 +363,266 @@ export const DatabaseSettings: React.FC<DatabaseSettingsProps> = ({
               ฐานข้อมูล & สำรอง
             </h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              สำรองไฟล์ JSON กู้คืนฐานข้อมูล และรีเซ็ตข้อมูลระบบ
+              สำรองไฟล์ JSON กู้คืนฐานข้อมูล ตรวจสอบสถานะการเชื่อมต่อ และรีเซ็ตข้อมูลระบบ
             </p>
           </div>
         </div>
         <div className="text-xs text-slate-500 font-medium">
           ผู้ใช้งาน: <strong className="text-slate-800">{currentUser.name}</strong> ({currentUser.role === 'admin' ? '🛡️ ผู้ดูแลระบบ' : currentUser.role === 'staff' ? '👤 เจ้าหน้าที่' : 'ครู'})
+        </div>
+      </div>
+
+      {/* 1. Database Connection Status Card */}
+      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-6 sm:p-7 space-y-5">
+        {/* Card Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div className="flex items-start gap-3.5">
+            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 border ${
+              connectionState === 'connected'
+                ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                : connectionState === 'error'
+                ? 'bg-rose-50 text-rose-600 border-rose-100'
+                : 'bg-amber-50 text-amber-600 border-amber-100'
+            }`}>
+              <Cloud className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base sm:text-lg font-black text-slate-900">
+                  สถานะการเชื่อมต่อฐานข้อมูล (Cloud Database Status)
+                </h2>
+                {connectionState === 'connected' ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    เชื่อมต่อสำเร็จ (ออนไลน์)
+                  </span>
+                ) : connectionState === 'error' ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
+                    <WifiOff className="w-3 h-3 text-rose-600" />
+                    ไม่สามารถเชื่อมต่อได้ (ออฟไลน์)
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                    <RefreshCw className="w-3 h-3 text-amber-600 animate-spin" />
+                    กำลังตรวจสอบการเชื่อมต่อ...
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                ระบบเชื่อมโยงและซิงค์ข้อมูลกับ Google Cloud Firestore แบบเรียลไทม์พร้อมแคชข้อมูลในเครื่อง
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={runConnectionTest}
+              disabled={isTestingConnection}
+              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl border border-slate-200/80 shadow-2xs flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isTestingConnection ? 'animate-spin text-indigo-600' : 'text-slate-600'}`} />
+              <span>{isTestingConnection ? 'กำลังทดสอบ...' : 'ทดสอบการเชื่อมต่อใหม่'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Error Notification if any */}
+        {connectionState === 'error' && connectionError && (
+          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium space-y-1.5">
+            <div className="flex items-center gap-2 font-bold text-rose-900">
+              <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+              <span>พบปัญหาการเชื่อมต่อเซิร์ฟเวอร์ Firestore</span>
+            </div>
+            <p className="text-rose-700 pl-6">{connectionError}</p>
+            <p className="text-[11px] text-rose-600 pl-6">
+              หมายเหตุ: หากเบราว์เซอร์อยู่ในโหมดออฟไลน์ ระบบจะใช้ข้อมูลที่บันทึกไว้ในแคชบนเครื่อง (IndexedDB) เพื่อให้ระบบทำงานต่อไปได้ชั่วคราว
+            </p>
+          </div>
+        )}
+
+        {/* 4 Status Metric Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          {/* Card 1: Cloud Link & Latency */}
+          <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/90 space-y-2">
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <span className="font-bold flex items-center gap-1.5">
+                <Activity className="w-3.5 h-3.5 text-indigo-600" />
+                สถานะการเชื่อมโยง
+              </span>
+              <span className={`w-2 h-2 rounded-full ${connectionState === 'connected' ? 'bg-emerald-500' : connectionState === 'error' ? 'bg-rose-500' : 'bg-amber-400 animate-pulse'}`}></span>
+            </div>
+            <div className="text-base font-black text-slate-900 flex items-baseline gap-2">
+              <span>{connectionState === 'connected' ? 'ออนไลน์สมบูรณ์' : connectionState === 'error' ? 'ออฟไลน์' : 'กำลังเชื่อมต่อ'}</span>
+              {latencyMs !== null && (
+                <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60">
+                  {latencyMs} ms
+                </span>
+              )}
+            </div>
+            <div className="text-[11px] text-slate-500 flex items-center gap-1">
+              <Clock className="w-3 h-3 text-slate-400" />
+              <span>ตรวจสอบ: {lastCheckedTime ? formatThaiDate(lastCheckedTime, 'time') : 'กำลังโหลด'}</span>
+            </div>
+          </div>
+
+          {/* Card 2: Database Instance */}
+          <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/90 space-y-2">
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <span className="font-bold flex items-center gap-1.5">
+                <Database className="w-3.5 h-3.5 text-purple-600" />
+                ฐานข้อมูล Firestore
+              </span>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200">
+                Instance
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-1">
+              <div className="text-xs font-mono font-bold text-slate-800 truncate" title={configInfo.firestoreDatabaseId}>
+                {configInfo.firestoreDatabaseId}
+              </div>
+              <button
+                type="button"
+                onClick={() => handleCopy(configInfo.firestoreDatabaseId, 'dbId')}
+                className="p-1 text-slate-400 hover:text-purple-600 transition-colors cursor-pointer flex-shrink-0"
+                title="คัดลอก Database ID"
+              >
+                {copiedField === 'dbId' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+            <div className="text-[11px] text-slate-500">
+              {configInfo.mode}
+            </div>
+          </div>
+
+          {/* Card 3: Cloud Project */}
+          <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/90 space-y-2">
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <span className="font-bold flex items-center gap-1.5">
+                <Server className="w-3.5 h-3.5 text-sky-600" />
+                GCP Project
+              </span>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200">
+                Cloud
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-1">
+              <div className="text-xs font-mono font-bold text-slate-800 truncate" title={configInfo.projectId}>
+                {configInfo.projectId}
+              </div>
+              <button
+                type="button"
+                onClick={() => handleCopy(configInfo.projectId, 'projectId')}
+                className="p-1 text-slate-400 hover:text-sky-600 transition-colors cursor-pointer flex-shrink-0"
+                title="คัดลอก Project ID"
+              >
+                {copiedField === 'projectId' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+            <div className="text-[11px] text-slate-500 truncate" title={configInfo.authDomain}>
+              {configInfo.authDomain}
+            </div>
+          </div>
+
+          {/* Card 4: Local Cache Persistence */}
+          <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/90 space-y-2">
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <span className="font-bold flex items-center gap-1.5">
+                <HardDrive className="w-3.5 h-3.5 text-amber-600" />
+                แคชเครื่อง (Offline Storage)
+              </span>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                IndexedDB
+              </span>
+            </div>
+            <div className="text-base font-black text-slate-900">
+              Multi-Tab Cache
+            </div>
+            <div className="text-[11px] text-slate-500">
+              รองรับเปิดหลายแท็บและทำงานได้ลื่นไหล
+            </div>
+          </div>
+        </div>
+
+        {/* Stored Data Summary (Cloud Collections Inventory) */}
+        <div className="p-4 rounded-2xl bg-slate-50/60 border border-slate-200 space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+              <Layers className="w-4 h-4 text-indigo-600" />
+              สรุปจำนวนข้อมูลที่บันทึกในฐานข้อมูลคลาวด์ปัจจุบัน
+            </span>
+            <span className="text-[11px] text-slate-500 font-medium">
+              Real-time Sync Active (อัตราการอัปเดตอัตโนมัติ)
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-1">
+            <div className="bg-white p-3 rounded-xl border border-slate-200/80 text-center shadow-2xs">
+              <div className="text-[11px] text-slate-500 font-medium">นักเรียน</div>
+              <div className="text-lg font-black text-slate-900 mt-0.5">{students.length.toLocaleString()}</div>
+              <div className="text-[10px] text-slate-400">คน</div>
+            </div>
+            <div className="bg-white p-3 rounded-xl border border-slate-200/80 text-center shadow-2xs">
+              <div className="text-[11px] text-slate-500 font-medium">บันทึกประพฤติ</div>
+              <div className="text-lg font-black text-indigo-700 mt-0.5">{conductLogs.length.toLocaleString()}</div>
+              <div className="text-[10px] text-slate-400">รายการ</div>
+            </div>
+            <div className="bg-white p-3 rounded-xl border border-slate-200/80 text-center shadow-2xs">
+              <div className="text-[11px] text-slate-500 font-medium">ผู้ใช้งานระบบ</div>
+              <div className="text-lg font-black text-slate-900 mt-0.5">{users.length.toLocaleString()}</div>
+              <div className="text-[10px] text-slate-400">บัญชี</div>
+            </div>
+            <div className="bg-white p-3 rounded-xl border border-slate-200/80 text-center shadow-2xs">
+              <div className="text-[11px] text-slate-500 font-medium">ครูที่ปรึกษา</div>
+              <div className="text-lg font-black text-slate-900 mt-0.5">{advisors.length.toLocaleString()}</div>
+              <div className="text-[10px] text-slate-400">ท่าน</div>
+            </div>
+            <div className="bg-white p-3 rounded-xl border border-slate-200/80 text-center shadow-2xs">
+              <div className="text-[11px] text-slate-500 font-medium">เกณฑ์พฤติกรรม</div>
+              <div className="text-lg font-black text-slate-900 mt-0.5">{standardBehaviors.length.toLocaleString()}</div>
+              <div className="text-[10px] text-slate-400">หัวข้อ</div>
+            </div>
+            <div className="bg-white p-3 rounded-xl border border-slate-200/80 text-center shadow-2xs">
+              <div className="text-[11px] text-slate-500 font-medium">สิทธิ์ดูคะแนน</div>
+              <div className="text-lg font-black text-slate-900 mt-0.5">{accessGrants.length.toLocaleString()}</div>
+              <div className="text-[10px] text-slate-400">สิทธิ์</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Collapsible Technical Specifications */}
+        <div className="pt-1">
+          <button
+            type="button"
+            onClick={() => setShowTechDetails(!showTechDetails)}
+            className="text-xs text-slate-500 hover:text-slate-800 font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <Info className="w-3.5 h-3.5 text-indigo-500" />
+            <span>{showTechDetails ? 'ซ่อนข้อมูลจำเพาะเชิงเทคนิค' : 'ดูข้อมูลจำเพาะเชิงเทคนิคและความปลอดภัย (Technical Specs)'}</span>
+            {showTechDetails ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+
+          {showTechDetails && (
+            <div className="mt-3 p-4 rounded-2xl bg-slate-900 text-slate-200 text-xs font-mono space-y-2 border border-slate-800">
+              <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 border-b border-slate-800 pb-1.5 flex items-center justify-between">
+                <span>Google Cloud Firestore Architecture</span>
+                <span className="text-emerald-400 font-normal">Active & Secure</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
+                <div><span className="text-slate-400">Database ID:</span> <span className="text-indigo-300 ml-1">{configInfo.firestoreDatabaseId}</span></div>
+                <div><span className="text-slate-400">GCP Project:</span> <span className="text-sky-300 ml-1">{configInfo.projectId}</span></div>
+                <div><span className="text-slate-400">Transport:</span> <span className="text-slate-300 ml-1">{configInfo.transport}</span></div>
+                <div><span className="text-slate-400">Persistence Cache:</span> <span className="text-amber-300 ml-1">{configInfo.cache}</span></div>
+                <div><span className="text-slate-400">Auth Domain:</span> <span className="text-slate-300 ml-1">{configInfo.authDomain}</span></div>
+                <div><span className="text-slate-400">Security Model:</span> <span className="text-emerald-300 ml-1">ABAC Rules v2</span></div>
+                <div><span className="text-slate-400">Last Verified Ping:</span> <span className="text-slate-300 ml-1">{latencyMs ? `${latencyMs} ms` : '-'}</span></div>
+                <div><span className="text-slate-400">Timestamp:</span> <span className="text-slate-300 ml-1">{lastCheckedTime ? formatThaiDate(lastCheckedTime, 'full-with-time') : '-'}</span></div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

@@ -1349,6 +1349,9 @@ export default function App() {
                   students={students}
                   conductLogs={conductLogs}
                   systemSettings={systemSettings}
+                  advisors={advisors}
+                  standardBehaviors={standardBehaviors}
+                  accessGrants={accessGrants}
                   onClose={() => setCurrentView('DASHBOARD')}
                   onExportBackup={exportDatabaseBackup}
                   onImportBackup={importDatabaseBackup}
