@@ -123,7 +123,7 @@ export function getRoleDisplayInfo(
       badgeClass: 'bg-indigo-100 text-indigo-900 border border-indigo-300',
       borderClass: 'border-indigo-200',
       icon: '👨‍🏫',
-      description: 'ไม่มีระดับสิทธิ์ที่ต่ำกว่าให้จัดการ (สามารถแก้ไขข้อมูลและรหัสผ่านของตนเองได้)'
+      description: 'ดูคะแนนและความประพฤตินักเรียนได้ทุกคน (โหมดดูได้อย่างเดียว ไม่สามารถเพิ่มหรือตัด/ลบคะแนนได้)'
     };
   }
 
@@ -215,7 +215,7 @@ export function getAllowedAssignableRoles(currentUser: AppUser | null | undefine
       label: 'ครูผู้สอน / ครูที่ปรึกษา (Teacher - ระดับ 1)',
       level: 1,
       icon: '👨‍🏫',
-      description: 'ดูข้อมูลนักเรียน และอนุญาตสิทธิ์การดูคะแนนให้นักเรียน'
+      description: 'ดูคะแนนนักเรียนได้ทุกคน (โหมดดูได้อย่างเดียว ไม่สามารถเพิ่มหรือตัดคะแนนพฤติกรรมได้)'
     });
   }
 
@@ -310,6 +310,18 @@ export const ALL_MENU_DEFINITIONS: MenuItemDefinition[] = [
     iconName: 'LayoutDashboard'
   },
   {
+    key: 'CHECK_SCORE',
+    title: 'ตรวจสอบคะแนนนักเรียน',
+    shortTitle: 'ตรวจสอบคะแนน',
+    category: 'CORE',
+    categoryName: 'เมนูหลัก',
+    description: 'ระบบสืบค้นและตรวจสอบคะแนนความประพฤตินักเรียน พร้อมระบบอนุญาตแบบคลิกเดียวให้นักเรียนทุกคนดูคะแนนตัวเองได้ (สิทธิ์เฉพาะผู้ดูแลและเจ้าหน้าที่)',
+    defaultRoles: ['admin', 'staff', 'teacher', 'student'],
+    defaultAllowGuest: true,
+    defaultEnabled: true,
+    iconName: 'ClipboardCheck'
+  },
+  {
     key: 'LOOKUP',
     title: 'ค้นหาและดูคะแนนนักเรียน',
     shortTitle: 'ค้นหานักเรียน',
@@ -344,6 +356,18 @@ export const ALL_MENU_DEFINITIONS: MenuItemDefinition[] = [
     defaultAllowGuest: true,
     defaultEnabled: true,
     iconName: 'Award'
+  },
+  {
+    key: 'REPORTS',
+    title: 'รายงานความประพฤติ',
+    shortTitle: 'รายงานความประพฤติ',
+    category: 'CORE',
+    categoryName: 'เมนูหลัก',
+    description: 'รายงานและพิมพ์เอกสารคะแนนความประพฤติ รายบุคคล ระดับชั้น นักเรียน 100 คะแนน ดีเด่น 100+ และประวัติเพิ่ม/หักคะแนน',
+    defaultRoles: ['admin', 'staff', 'teacher'],
+    defaultAllowGuest: false,
+    defaultEnabled: true,
+    iconName: 'Printer'
   },
   {
     key: 'CRITICAL_ALERT',
@@ -390,7 +414,7 @@ export const ALL_MENU_DEFINITIONS: MenuItemDefinition[] = [
     category: 'STUDENT_MGMT',
     categoryName: 'จัดการนักเรียน',
     description: 'นำเข้าประวัติการกระทำผิดและตัดคะแนนความประพฤติจากไฟล์ Excel อ้างอิงรหัสนักเรียน',
-    defaultRoles: ['admin', 'staff', 'teacher'],
+    defaultRoles: ['admin', 'staff'],
     defaultAllowGuest: false,
     defaultEnabled: true,
     iconName: 'FileSpreadsheet'
@@ -565,6 +589,18 @@ export function canUserAccessMenu(
     );
   }
 
+  // กรณีเมนูย่อยรายงานความประพฤติ ให้ตรวจสอบสิทธิ์เข้าถึงเมนู REPORTS หลัก
+  if (
+    view === 'REPORT_INDIVIDUAL' ||
+    view === 'REPORT_GRADE_LEVEL' ||
+    view === 'REPORT_FULL_100' ||
+    view === 'REPORT_HONOUR_100' ||
+    view === 'REPORT_POINTS_ADDED' ||
+    view === 'REPORT_POINTS_DEDUCTED'
+  ) {
+    return canUserAccessMenu('REPORTS', user, studentGrant, effectivePermissions);
+  }
+
   const def = ALL_MENU_DEFINITIONS.find(m => m.key === view);
   if (!def) {
     // ถ้าไม่มีคำจำกัดความ (เช่น เมนูย่อยหรือ alias) ให้พิจารณาว่าเข้าถึงได้
@@ -604,3 +640,15 @@ export function canUserAccessMenu(
 
   return false;
 }
+
+/**
+ * ตรวจสอบสิทธิ์การเพิ่มหรือตัด/ลบคะแนนพฤติกรรม:
+ * - Admin (ระดับ 3, 4) และ Staff (ระดับ 2): สามารถเพิ่มหรือตัด/ลบคะแนนพฤติกรรมได้
+ * - Teacher (ระดับ 1): ไม่สามารถเพิ่มหรือตัด/ลบคะแนนพฤติกรรมได้ (โหมดดูได้อย่างเดียว แต่ดูคะแนนได้ทุกคน)
+ * - Student/Guest (ระดับ 0): โหมดดูเฉพาะบุคคลหรือทั่วไป
+ */
+export function canUserModifyConductScore(user: AppUser | null | undefined): boolean {
+  if (!user) return false;
+  return user.role === 'admin' || user.role === 'staff';
+}
+

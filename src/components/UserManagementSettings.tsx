@@ -487,7 +487,7 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({
                 </div>
                 <div className="font-bold text-xs text-slate-900">ครูผู้สอน / ครูที่ปรึกษา</div>
                 <p className="text-[11px] text-slate-500 mt-1">
-                  ไม่มีสิทธิ์ต่ำกว่าให้จัดการ (สามารถดูข้อมูลและเปลี่ยนรหัสผ่านของตนเองได้)
+                  ดูคะแนนนักเรียนได้ทุกคน (โหมดดูได้อย่างเดียว ไม่สามารถเพิ่มหรือตัด/ลบคะแนนพฤติกรรมได้)
                 </p>
               </div>
             </div>

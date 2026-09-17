@@ -6,6 +6,8 @@ import {
   ChevronsRight
 } from 'lucide-react';
 
+export type PageSizeOption = number | 'ALL';
+
 interface PaginationProps {
   currentPage: number;
   totalItems: number;
@@ -15,6 +17,7 @@ interface PaginationProps {
   showSummary?: boolean;
   className?: string;
   itemLabel?: string;
+  pageSizeOptions?: PageSizeOption[];
 }
 
 export const Pagination: React.FC<PaginationProps> = ({
@@ -25,13 +28,22 @@ export const Pagination: React.FC<PaginationProps> = ({
   onPageSizeChange,
   showSummary = true,
   className = '',
-  itemLabel = 'รายการ'
+  itemLabel = 'รายการ',
+  pageSizeOptions
 }) => {
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const isAll = pageSize >= 999999;
+  const effectivePageSize = isAll ? Math.max(1, totalItems) : Math.max(1, pageSize);
+  const totalPages = isAll ? 1 : Math.max(1, Math.ceil(totalItems / effectivePageSize));
 
-  // If total items is 0 or less than or equal to pageSize and totalPages <= 1,
-  // we can still show a minimal summary or hide pagination controls if <= 20
-  if (totalItems <= pageSize && totalPages <= 1) {
+  const resolvedOptions: PageSizeOption[] = pageSizeOptions || [25, 50, 100, 'ALL'];
+
+  // If total items is 0, nothing to show
+  if (totalItems <= 0) {
+    return null;
+  }
+
+  // If total items is small and no onPageSizeChange is provided, show minimal summary
+  if (totalItems <= effectivePageSize && totalPages <= 1 && !onPageSizeChange) {
     return (
       <div className={`flex items-center justify-between py-3 px-4 bg-slate-50/70 border-t border-slate-200 text-xs text-slate-500 rounded-b-2xl ${className}`}>
         <span>
@@ -42,8 +54,12 @@ export const Pagination: React.FC<PaginationProps> = ({
     );
   }
 
-  const startItem = Math.min((currentPage - 1) * pageSize + 1, totalItems);
-  const endItem = Math.min(currentPage * pageSize, totalItems);
+  const startItem = isAll
+    ? (totalItems > 0 ? 1 : 0)
+    : Math.min((currentPage - 1) * effectivePageSize + 1, totalItems);
+  const endItem = isAll
+    ? totalItems
+    : Math.min(currentPage * effectivePageSize, totalItems);
 
   // Generate page numbers with ellipsis
   const getPageNumbers = () => {
@@ -101,13 +117,19 @@ export const Pagination: React.FC<PaginationProps> = ({
             <div className="flex items-center gap-1 ml-2 pl-2 border-l border-slate-200">
               <span className="text-[11px] text-slate-400">แสดงหน้าละ:</span>
               <select
-                value={pageSize}
+                value={isAll ? 999999 : pageSize}
                 onChange={(e) => onPageSizeChange(Number(e.target.value))}
                 className="bg-white border border-slate-300 rounded-lg px-2 py-0.5 text-xs font-bold text-slate-700 cursor-pointer"
               >
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
+                {resolvedOptions.map((opt) => {
+                  const val = opt === 'ALL' || (typeof opt === 'number' && opt >= 999999) ? 999999 : opt;
+                  const label = opt === 'ALL' || (typeof opt === 'number' && opt >= 999999) ? 'ทั้งหมด' : String(opt);
+                  return (
+                    <option key={String(opt)} value={val}>
+                      {label}
+                    </option>
+                  );
+                })}
               </select>
             </div>
           )}

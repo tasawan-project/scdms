@@ -98,7 +98,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
 }) => {
   const cutoffs = useMemo(() => parseConductCutoffs(systemSettings), [systemSettings]);
   const userRole = currentUser?.role || 'student';
-  const canDeductAndAdd = userRole === 'admin' || userRole === 'staff' || userRole === 'teacher';
+  // ผู้ใช้งาน "Teacher (ระดับ 1)" ไม่สามารถ เพิ่ม หรือ ลบ/ตัด คะแนนพฤติกรรมได้ ให้ดูได้อย่างเดียว แต่ดูคะแนนได้ทุกคน
+  const canDeductAndAdd = userRole === 'admin' || userRole === 'staff';
   const canGrantAccess = userRole === 'admin' || userRole === 'staff' || userRole === 'teacher';
 
   // Table filters & sorting
@@ -109,7 +110,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [sortField, setSortField] = useState<string>('currentScore');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(20);
+  const [pageSize, setPageSize] = useState<number>(25);
 
   // Reset pagination on filter or search changes
   useEffect(() => {
@@ -340,6 +341,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   // Paginated students slice
   const paginatedStudents = useMemo(() => {
+    if (pageSize >= 999999) return filteredStudents;
     const start = (currentPage - 1) * pageSize;
     return filteredStudents.slice(start, start + pageSize);
   }, [filteredStudents, currentPage, pageSize]);
@@ -824,6 +826,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </button>
             )}
 
+            {userRole === 'teacher' && (
+              <div className="text-xs font-semibold text-indigo-800 bg-indigo-50 border border-indigo-200 px-2.5 py-1.5 rounded-xl flex items-center gap-1.5">
+                <Eye className="w-3.5 h-3.5 text-indigo-600" />
+                <span>โหมดดูคะแนนอย่างเดียว (สิทธิ์ระดับ 1 - ดูได้ทุกคน)</span>
+              </div>
+            )}
+
             <div className="text-xs font-semibold text-slate-600 bg-slate-100 border border-slate-200/80 px-2.5 py-1.5 rounded-xl">
               พบ {filteredStudents.length} คน จากทั้งหมด {activeStudents.length} คน
             </div>
@@ -1253,7 +1262,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                       </button>
                                     )}
 
-                                    {onOpenEditStudent && (userRole === 'admin' || userRole === 'staff' || userRole === 'teacher') && (
+                                    {onOpenEditStudent && (userRole === 'admin' || userRole === 'staff') && (
                                       <button
                                         type="button"
                                         onClick={() => onOpenEditStudent(student)}
@@ -1301,14 +1310,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        {/* Pagination when filtered students > 20 */}
-        {filteredStudents.length > 20 && (
+        {/* Pagination when filtered students > 0 */}
+        {filteredStudents.length > 0 && (
           <Pagination
             currentPage={currentPage}
             totalItems={filteredStudents.length}
             pageSize={pageSize}
             onPageChange={setCurrentPage}
-            onPageSizeChange={setPageSize}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setCurrentPage(1);
+            }}
+            pageSizeOptions={[25, 50, 100, 'ALL']}
             itemLabel="คน"
             className="pt-2"
           />

@@ -28,7 +28,9 @@ import {
   AlertCircle,
   Eye,
   ShieldAlert,
-  ArrowLeft
+  ArrowLeft,
+  Printer,
+  ClipboardCheck
 } from 'lucide-react';
 
 interface MenuPermissionsSettingsProps {
@@ -261,6 +263,8 @@ export const MenuPermissionsSettings: React.FC<MenuPermissionsSettingsProps> = (
       case 'UserCheck': return <UserCheck className="w-4 h-4" />;
       case 'Sparkles': return <Sparkles className="w-4 h-4" />;
       case 'ShieldCheck': return <ShieldCheck className="w-4 h-4" />;
+      case 'Printer': return <Printer className="w-4 h-4" />;
+      case 'ClipboardCheck': return <ClipboardCheck className="w-4 h-4" />;
       default: return <Folder className="w-4 h-4" />;
     }
   };

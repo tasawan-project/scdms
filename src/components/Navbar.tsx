@@ -26,7 +26,13 @@ import {
   HelpCircle,
   LogIn,
   Camera,
-  Key
+  Key,
+  Printer,
+  CheckCircle2,
+  PlusCircle,
+  MinusCircle,
+  ChevronDown,
+  ClipboardCheck
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -67,6 +73,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenChangePassword
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+  const [mobileReportsOpen, setMobileReportsOpen] = useState<boolean>(true);
 
   // Close mobile drawer when view changes or on window resize
   useEffect(() => {
@@ -96,10 +103,18 @@ export const Navbar: React.FC<NavbarProps> = ({
     switch (view) {
       case 'HOME': return 'หน้าแรก (พอร์ทัล)';
       case 'DASHBOARD': return 'ภาพรวมคะแนน';
+      case 'CHECK_SCORE': return 'ตรวจสอบคะแนน: ตรวจสอบคะแนนนักเรียน';
       case 'STUDENT_LIST': return 'จัดการนักเรียน: จัดการรายชื่อนักเรียน';
       case 'LOOKUP': return 'ค้นหานักเรียน';
       case 'ADVISORS': return 'ครูที่ปรึกษา';
       case 'HONOUR': return 'ทำเนียบ 100+';
+      case 'REPORTS': return 'รายงานคะแนนความประพฤติ';
+      case 'REPORT_INDIVIDUAL': return 'รายงานความประพฤติ: รายงานรายบุคคล';
+      case 'REPORT_GRADE_LEVEL': return 'รายงานความประพฤติ: รายงานแบบระดับชั้น';
+      case 'REPORT_FULL_100': return 'รายงานความประพฤติ: นักเรียนครบ 100 คะแนน';
+      case 'REPORT_HONOUR_100': return 'รายงานความประพฤติ: นักเรียนดีเด่น 100+';
+      case 'REPORT_POINTS_ADDED': return 'รายงานความประพฤติ: รายงานการเพิ่มคะแนน';
+      case 'REPORT_POINTS_DEDUCTED': return 'รายงานความประพฤติ: รายงานการหักคะแนน';
       case 'IMPORT': return 'จัดการนักเรียน: นำเข้านักเรียน CSV';
       case 'IMPORT_CONDUCT': return 'จัดการนักเรียน: นำเข้าการกระทำผิด (Excel)';
       case 'PHOTOS': return 'จัดการนักเรียน: นำเข้ารูปนักเรียน';
@@ -550,6 +565,26 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </button>
                 )}
 
+                {canAccess('CHECK_SCORE') && (
+                  <button
+                    onClick={() => {
+                      onChangeView('CHECK_SCORE');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`w-full px-3.5 py-2.5 rounded-xl text-sm font-bold flex items-center justify-between transition-colors ${
+                      currentView === 'CHECK_SCORE'
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <ClipboardCheck className="w-4 h-4" />
+                      <span>ตรวจสอบคะแนนนักเรียน</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 opacity-70" />
+                  </button>
+                )}
+
                 {canAccess('LOOKUP') && (
                   <button
                     onClick={() => {
@@ -618,6 +653,152 @@ export const Navbar: React.FC<NavbarProps> = ({
                         100+
                       </span>
                     </button>
+                  )}
+
+                  {canAccess('REPORTS') && (
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setMobileReportsOpen(prev => !prev)}
+                        className={`w-full px-3.5 py-2.5 rounded-xl text-sm font-medium flex items-center justify-between transition-colors text-left ${
+                          currentView.startsWith('REPORT') || currentView === 'REPORTS'
+                            ? 'bg-indigo-50 text-indigo-950 font-bold border border-indigo-200'
+                            : 'text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Printer className={`w-4 h-4 ${
+                            currentView.startsWith('REPORT') || currentView === 'REPORTS' ? 'text-indigo-600' : 'text-slate-500'
+                          }`} />
+                          <span>รายงานคะแนนความประพฤติ</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {mobileReportsOpen ? (
+                            <ChevronDown className="w-4 h-4 text-slate-400" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 text-slate-400" />
+                          )}
+                        </div>
+                      </button>
+
+                      {mobileReportsOpen && (
+                        <div className="pl-3 pr-1 space-y-1 mt-1 border-l-2 border-indigo-100 ml-4">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMobileMenuOpen(false);
+                              onChangeView('REPORT_INDIVIDUAL');
+                            }}
+                            className={`w-full px-3 py-2 rounded-lg text-xs font-bold flex items-center justify-between transition-colors text-left ${
+                              currentView === 'REPORT_INDIVIDUAL' || currentView === 'REPORTS'
+                                ? 'bg-indigo-600 text-white'
+                                : 'text-slate-600 hover:bg-indigo-50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <User className="w-3.5 h-3.5" />
+                              <span>รายงานรายบุคคล</span>
+                            </div>
+                            <span className="text-[10px] opacity-75">ค้นหา</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMobileMenuOpen(false);
+                              onChangeView('REPORT_GRADE_LEVEL');
+                            }}
+                            className={`w-full px-3 py-2 rounded-lg text-xs font-bold flex items-center justify-between transition-colors text-left ${
+                              currentView === 'REPORT_GRADE_LEVEL'
+                                ? 'bg-indigo-600 text-white'
+                                : 'text-slate-600 hover:bg-indigo-50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Users className="w-3.5 h-3.5" />
+                              <span>รายงานแบบระดับชั้น</span>
+                            </div>
+                            <span className="text-[10px] opacity-75">ม.1-6</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMobileMenuOpen(false);
+                              onChangeView('REPORT_FULL_100');
+                            }}
+                            className={`w-full px-3 py-2 rounded-lg text-xs font-bold flex items-center justify-between transition-colors text-left ${
+                              currentView === 'REPORT_FULL_100'
+                                ? 'bg-emerald-600 text-white'
+                                : 'text-slate-600 hover:bg-emerald-50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                              <span>นักเรียนครบ 100 คะแนน</span>
+                            </div>
+                            <span className="text-[10px] font-bold">100</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMobileMenuOpen(false);
+                              onChangeView('REPORT_HONOUR_100');
+                            }}
+                            className={`w-full px-3 py-2 rounded-lg text-xs font-bold flex items-center justify-between transition-colors text-left ${
+                              currentView === 'REPORT_HONOUR_100'
+                                ? 'bg-violet-700 text-white'
+                                : 'text-slate-600 hover:bg-violet-50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Award className="w-3.5 h-3.5 text-amber-500" />
+                              <span>นักเรียนดีเด่น 100+</span>
+                            </div>
+                            <span className="text-[10px] font-bold">100+</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMobileMenuOpen(false);
+                              onChangeView('REPORT_POINTS_ADDED');
+                            }}
+                            className={`w-full px-3 py-2 rounded-lg text-xs font-bold flex items-center justify-between transition-colors text-left ${
+                              currentView === 'REPORT_POINTS_ADDED'
+                                ? 'bg-teal-600 text-white'
+                                : 'text-slate-600 hover:bg-teal-50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <PlusCircle className="w-3.5 h-3.5 text-teal-500" />
+                              <span>รายงานการเพิ่มคะแนน</span>
+                            </div>
+                            <span className="text-[10px] font-bold">+แต้ม</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMobileMenuOpen(false);
+                              onChangeView('REPORT_POINTS_DEDUCTED');
+                            }}
+                            className={`w-full px-3 py-2 rounded-lg text-xs font-bold flex items-center justify-between transition-colors text-left ${
+                              currentView === 'REPORT_POINTS_DEDUCTED'
+                                ? 'bg-rose-600 text-white'
+                                : 'text-slate-600 hover:bg-rose-50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <MinusCircle className="w-3.5 h-3.5 text-rose-500" />
+                              <span>รายงานการหักคะแนน</span>
+                            </div>
+                            <span className="text-[10px] font-bold">-แต้ม</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )}
 
                   {(canAccess('SETTINGS_BRANDING') ||
@@ -727,6 +908,27 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <Users className="w-5 h-5 sm:w-5 sm:h-5" />
                   <span className="text-[10px] sm:text-xs mt-0.5 whitespace-nowrap">ภาพรวม</span>
                   {currentView === 'DASHBOARD' && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 mt-0.5" />
+                  )}
+                </button>
+              )}
+
+              {canAccess('CHECK_SCORE') && (
+                <button
+                  id="mobile-nav-check-score"
+                  onClick={() => {
+                    onChangeView('CHECK_SCORE');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`flex flex-col items-center justify-center py-1 sm:py-1.5 px-2 sm:px-4 rounded-xl transition-all cursor-pointer relative ${
+                    currentView === 'CHECK_SCORE'
+                      ? 'text-indigo-600 font-bold bg-indigo-50/90'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <ClipboardCheck className="w-5 h-5 sm:w-5 sm:h-5" />
+                  <span className="text-[10px] sm:text-xs mt-0.5 whitespace-nowrap">ตรวจคะแนน</span>
+                  {currentView === 'CHECK_SCORE' && (
                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 mt-0.5" />
                   )}
                 </button>

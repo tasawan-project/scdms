@@ -135,6 +135,24 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         grant: activeGrant,
         message: `ได้รับอนุญาตให้ดูคะแนนแล้ว โดย ${activeGrant.grantedByUserName} (${activeGrant.grantedByUserRole})`
       });
+    } else if (systemSettings?.allowAllStudentsScoreCheck) {
+      const schoolWideGrant: StudentAccessGrant = {
+        id: `auto-all-${cleanId}`,
+        studentId: cleanId,
+        studentName: `${student.title || ''}${student.firstName} ${student.lastName}`,
+        grantedByUserId: 'admin',
+        grantedByUserName: systemSettings.allStudentsScoreCheckGrantedBy || 'ผู้ดูแลระบบ / ฝ่ายกิจการนักเรียน',
+        grantedByUserRole: 'admin',
+        grantedAt: systemSettings.allStudentsScoreCheckGrantedAt || new Date().toISOString(),
+        isActive: true,
+        reason: 'เปิดสิทธิ์ให้นักเรียนทุกคนดูคะแนนตนเองได้ทั่วถึงทั้งโรงเรียน'
+      };
+      setStudentCheckResult({
+        status: 'GRANTED',
+        student,
+        grant: schoolWideGrant,
+        message: `โรงเรียนเปิดอนุญาตให้นักเรียนทุกคนดูคะแนนตนเองได้ (อนุมัติโดย: ${systemSettings.allStudentsScoreCheckGrantedBy || 'ฝ่ายกิจการนักเรียน'})`
+      });
     } else {
       setStudentCheckResult({
         status: 'NOT_GRANTED',

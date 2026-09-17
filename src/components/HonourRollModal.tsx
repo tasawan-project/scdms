@@ -34,7 +34,7 @@ export const HonourRollModal: React.FC<HonourRollModalProps> = ({
   const [activeLevelTab, setActiveLevelTab] = useState<'ALL' | 'JUNIOR' | 'SENIOR'>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<'ALL' | 'EXCELLENT' | 'OUTSTANDING'>('ALL');
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(20);
+  const [pageSize, setPageSize] = useState<number>(25);
 
   // Reset page on filter change
   useEffect(() => {
@@ -77,6 +77,7 @@ export const HonourRollModal: React.FC<HonourRollModalProps> = ({
 
   // Paginated subset
   const paginatedList = useMemo(() => {
+    if (pageSize >= 999999) return filteredHonourList;
     const start = (currentPage - 1) * pageSize;
     return filteredHonourList.slice(start, start + pageSize);
   }, [filteredHonourList, currentPage, pageSize]);
@@ -322,13 +323,17 @@ export const HonourRollModal: React.FC<HonourRollModalProps> = ({
           {renderStudentCards(paginatedList)}
 
           {/* Pagination */}
-          {filteredHonourList.length > 20 && (
+          {filteredHonourList.length > 0 && (
             <Pagination
               currentPage={currentPage}
               totalItems={filteredHonourList.length}
               pageSize={pageSize}
               onPageChange={setCurrentPage}
-              onPageSizeChange={setPageSize}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setCurrentPage(1);
+              }}
+              pageSizeOptions={[25, 50, 100, 'ALL']}
               itemLabel="คน"
               className="mt-6"
             />
@@ -437,13 +442,17 @@ export const HonourRollModal: React.FC<HonourRollModalProps> = ({
 
         {/* Footer with Pagination */}
         <div className="bg-slate-50 border-t border-slate-200">
-          {filteredHonourList.length > 20 && (
+          {filteredHonourList.length > 0 && (
             <Pagination
               currentPage={currentPage}
               totalItems={filteredHonourList.length}
               pageSize={pageSize}
               onPageChange={setCurrentPage}
-              onPageSizeChange={setPageSize}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setCurrentPage(1);
+              }}
+              pageSizeOptions={[25, 50, 100, 'ALL']}
               itemLabel="คน"
               className="border-b border-slate-200"
             />

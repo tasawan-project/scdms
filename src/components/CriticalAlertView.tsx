@@ -16,7 +16,8 @@ import {
   MinusCircle,
   KeyRound,
   UserCheck,
-  RotateCcw
+  RotateCcw,
+  Eye
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -51,7 +52,7 @@ export const CriticalAlertView: React.FC<CriticalAlertViewProps> = ({
   const [classroomFilter, setClassroomFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(20);
+  const [pageSize, setPageSize] = useState<number>(25);
 
   // Reset page when filter changes
   useEffect(() => {
@@ -160,6 +161,7 @@ export const CriticalAlertView: React.FC<CriticalAlertViewProps> = ({
 
   // Paginated students
   const paginatedStudents = useMemo(() => {
+    if (pageSize >= 999999) return filteredStudents;
     const start = (currentPage - 1) * pageSize;
     return filteredStudents.slice(start, start + pageSize);
   }, [filteredStudents, currentPage, pageSize]);
@@ -191,7 +193,8 @@ export const CriticalAlertView: React.FC<CriticalAlertViewProps> = ({
     XLSX.writeFile(workbook, `รายงานนักเรียนกลุ่มเสี่ยงและถูกหักคะแนน_ปี${currentAcademicYear}.xlsx`);
   };
 
-  const isStaffOrAdmin = currentUser?.role === 'admin' || currentUser?.role === 'staff' || currentUser?.role === 'teacher';
+  // ผู้ใช้งาน Teacher (ระดับ 1) ไม่สามารถ เพิ่ม หรือ ลบ/ตัด คะแนนพฤติกรรมได้ ให้ดูได้อย่างเดียว แต่ดูคะแนนได้ทุกคน
+  const isStaffOrAdmin = currentUser?.role === 'admin' || currentUser?.role === 'staff';
 
   return (
     <div className="space-y-6 w-full pb-12">
@@ -214,6 +217,12 @@ export const CriticalAlertView: React.FC<CriticalAlertViewProps> = ({
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
+          {currentUser?.role === 'teacher' && (
+            <div className="text-xs font-semibold text-indigo-800 bg-indigo-50 border border-indigo-200 px-3 py-2 rounded-xl flex items-center gap-1.5">
+              <Eye className="w-3.5 h-3.5 text-indigo-600" />
+              <span>โหมดดูคะแนนอย่างเดียว (สิทธิ์ระดับ 1)</span>
+            </div>
+          )}
           <button
             onClick={exportToExcel}
             className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
@@ -591,15 +600,19 @@ export const CriticalAlertView: React.FC<CriticalAlertViewProps> = ({
           })}
           </div>
 
-          {/* Pagination when filtered students > 20 */}
-          {filteredStudents.length > 20 && (
+          {/* Pagination when filtered students > 0 */}
+          {filteredStudents.length > 0 && (
             <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-xs">
               <Pagination
                 currentPage={currentPage}
                 totalItems={filteredStudents.length}
                 pageSize={pageSize}
                 onPageChange={setCurrentPage}
-                onPageSizeChange={setPageSize}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setCurrentPage(1);
+                }}
+                pageSizeOptions={[25, 50, 100, 'ALL']}
                 itemLabel="คน"
               />
             </div>

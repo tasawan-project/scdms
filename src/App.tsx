@@ -35,6 +35,7 @@ import {
   deleteAppUser,
   fetchStudentAccessGrants,
   saveStudentAccessGrant,
+  batchSaveStudentAccessGrants,
   revokeStudentAccessGrant,
   fetchHomeroomAdvisors,
   saveHomeroomAdvisor,
@@ -88,11 +89,32 @@ import { ImportStudentsModal } from './components/ImportStudentsModal';
 import { ImportConductLogsModal } from './components/ImportConductLogsModal';
 import { YearResetModal } from './components/YearResetModal';
 import { CriticalAlertView } from './components/CriticalAlertView';
+import { ConductReportView, ConductReportTab } from './components/ConductReportView';
 import { StudentPhotoManagerModal } from './components/StudentPhotoManagerModal';
+import { ScoreCheckView } from './components/ScoreCheckView';
 import { AddStudentModal } from './components/AddStudentModal';
 import { EditStudentModal } from './components/EditStudentModal';
 import { SettingsTabBar } from './components/SettingsTabBar';
 import { Loader2, ShieldAlert } from 'lucide-react';
+
+const getActiveReportTabFromView = (view: AppView): ConductReportTab => {
+  switch (view) {
+    case 'REPORT_GRADE_LEVEL':
+      return 'GRADE_LEVEL';
+    case 'REPORT_FULL_100':
+      return 'FULL_100';
+    case 'REPORT_HONOUR_100':
+      return 'HONOUR_100_PLUS';
+    case 'REPORT_POINTS_ADDED':
+      return 'POINTS_ADDED';
+    case 'REPORT_POINTS_DEDUCTED':
+      return 'POINTS_DEDUCTED';
+    case 'REPORT_INDIVIDUAL':
+    case 'REPORTS':
+    default:
+      return 'INDIVIDUAL';
+  }
+};
 
 export default function App() {
   const [students, setStudents] = useState<Student[]>([]);
@@ -436,6 +458,10 @@ export default function App() {
 
   // Conduct Action Handler
   const handleConductSubmit = async (log: ConductLog, updatedStudent: Student) => {
+    if (currentUser?.role === 'teacher') {
+      console.warn('ผู้ใช้งาน Teacher (ระดับ 1) เป็นโหมดดูได้อย่างเดียว ไม่สามารถเพิ่มหรือตัดคะแนนพฤติกรรมได้');
+      return;
+    }
     const recorder = currentUser ? currentUser.name : (log.recordedBy || 'เจ้าหน้าที่ฝ่ายปกครอง');
     const finalLog: ConductLog = {
       ...log,
@@ -454,6 +480,10 @@ export default function App() {
 
   // Edit Conduct Log Handler
   const handleEditConductLog = async (updatedLog: ConductLog, updatedStudent: Student) => {
+    if (currentUser?.role === 'teacher') {
+      console.warn('ผู้ใช้งาน Teacher (ระดับ 1) เป็นโหมดดูได้อย่างเดียว ไม่สามารถแก้ไขข้อมูลคะแนนพฤติกรรมได้');
+      return;
+    }
     await updateConductLogTransaction(updatedLog, updatedStudent);
 
     setStudents(prev => prev.map(s => (s.id === updatedStudent.id ? updatedStudent : s)));
@@ -465,6 +495,10 @@ export default function App() {
 
   // Delete Conduct Log Handler
   const handleDeleteConductLog = async (log: ConductLog, updatedStudent: Student) => {
+    if (currentUser?.role === 'teacher') {
+      console.warn('ผู้ใช้งาน Teacher (ระดับ 1) เป็นโหมดดูได้อย่างเดียว ไม่สามารถลบประวัติคะแนนพฤติกรรมได้');
+      return;
+    }
     await deleteConductLogTransaction(log.id, updatedStudent);
 
     setStudents(prev => prev.map(s => (s.id === updatedStudent.id ? updatedStudent : s)));
@@ -634,6 +668,41 @@ export default function App() {
   const handleGrantAccessSuccess = async (grant: StudentAccessGrant) => {
     await saveStudentAccessGrant(grant);
     setAccessGrants(prev => [grant, ...prev.filter(g => g.id !== grant.id)]);
+  };
+
+  const handleBatchGrantAllStudents = async () => {
+    if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'staff')) {
+      throw new Error('ให้สิทธิ์เฉพาะผู้ดูแลระบบและเจ้าหน้าที่เท่านั้น');
+    }
+    const newGrants: StudentAccessGrant[] = [];
+    const now = new Date().toISOString();
+    const activeList = students.filter(s => s.status !== 'INACTIVE' && s.status !== 'GRADUATED');
+    for (const st of activeList) {
+      newGrants.push({
+        id: `grant-${st.id}-${Date.now()}`,
+        studentId: st.id,
+        studentName: `${st.title || ''}${st.firstName} ${st.lastName}`,
+        grantedByUserId: currentUser.id,
+        grantedByUserName: currentUser.name,
+        grantedByUserRole: currentUser.role,
+        grantedAt: now,
+        isActive: true,
+        reason: 'อนุมัติสิทธิ์นักเรียนทุกคน (One-Click Batch Grant)'
+      });
+    }
+    await batchSaveStudentAccessGrants(newGrants);
+    setAccessGrants(prev => {
+      const map = new Map<string, StudentAccessGrant>();
+      for (const g of newGrants) {
+        map.set(g.studentId, g);
+      }
+      for (const g of prev) {
+        if (!map.has(g.studentId)) {
+          map.set(g.studentId, g);
+        }
+      }
+      return Array.from(map.values()).sort((a, b) => new Date(b.grantedAt).getTime() - new Date(a.grantedAt).getTime());
+    });
   };
 
   // User Management Handlers
@@ -1012,6 +1081,23 @@ export default function App() {
                 </button>
               </div>
             </div>
+          ) : currentView === 'CHECK_SCORE' ? (
+            <ScoreCheckView
+              students={students}
+              conductLogs={conductLogs}
+              accessGrants={accessGrants}
+              currentUser={currentUser}
+              studentGrant={studentGrant}
+              systemSettings={systemSettings}
+              currentAcademicYear={systemSettings.currentAcademicYear}
+              currentTerm={systemSettings.currentTerm}
+              onNavigate={handleChangeView}
+              onSelectStudent={handleSelectStudent}
+              onStudentAuthorizedView={handleStudentAuthorizedView}
+              onUpdateSystemSettings={handleUpdateSettings}
+              onGrantAccess={handleGrantAccessSuccess}
+              onBatchGrantAllStudents={handleBatchGrantAllStudents}
+            />
           ) : currentView === 'HONOUR' ? (
             <HonourRollModal
               isPage={true}
@@ -1020,6 +1106,36 @@ export default function App() {
               systemSettings={systemSettings}
               onClose={() => setCurrentView(currentUser?.role !== 'student' ? 'DASHBOARD' : 'LOOKUP')}
               onSelectStudent={handleSelectStudent}
+            />
+          ) : currentView === 'REPORTS' ||
+              currentView === 'REPORT_INDIVIDUAL' ||
+              currentView === 'REPORT_GRADE_LEVEL' ||
+              currentView === 'REPORT_FULL_100' ||
+              currentView === 'REPORT_HONOUR_100' ||
+              currentView === 'REPORT_POINTS_ADDED' ||
+              currentView === 'REPORT_POINTS_DEDUCTED' ? (
+            <ConductReportView
+              students={students}
+              conductLogs={conductLogs}
+              currentAcademicYear={systemSettings.currentAcademicYear}
+              currentTerm={systemSettings.currentTerm}
+              systemSettings={systemSettings}
+              advisors={advisors}
+              standardBehaviors={standardBehaviors}
+              currentUser={currentUser}
+              activeReportTab={getActiveReportTabFromView(currentView)}
+              onChangeReportTab={(tab) => {
+                switch (tab) {
+                  case 'INDIVIDUAL': setCurrentView('REPORT_INDIVIDUAL'); break;
+                  case 'GRADE_LEVEL': setCurrentView('REPORT_GRADE_LEVEL'); break;
+                  case 'FULL_100': setCurrentView('REPORT_FULL_100'); break;
+                  case 'HONOUR_100_PLUS': setCurrentView('REPORT_HONOUR_100'); break;
+                  case 'POINTS_ADDED': setCurrentView('REPORT_POINTS_ADDED'); break;
+                  case 'POINTS_DEDUCTED': setCurrentView('REPORT_POINTS_DEDUCTED'); break;
+                }
+              }}
+              onSelectStudent={handleSelectStudent}
+              onClose={() => setCurrentView(currentUser?.role !== 'student' ? 'DASHBOARD' : 'LOOKUP')}
             />
           ) : currentView === 'LOOKUP' ? (
             <StudentLookup
@@ -1036,6 +1152,9 @@ export default function App() {
               onOpenConductAction={(student, defaultType) => {
                 if (!currentUser) {
                   setShowLoginModal(true);
+                  return;
+                }
+                if (currentUser.role === 'teacher') {
                   return;
                 }
                 setConductActionTarget({ student, defaultType });
@@ -1136,9 +1255,10 @@ export default function App() {
               advisors={advisors}
               onBack={() => setCurrentView('DASHBOARD')}
               onSelectStudent={handleSelectStudent}
-              onOpenConductAction={(student, defaultType) =>
-                setConductActionTarget({ student, defaultType })
-              }
+              onOpenConductAction={(student, defaultType) => {
+                if (!currentUser || currentUser.role === 'teacher') return;
+                setConductActionTarget({ student, defaultType });
+              }}
               onOpenGrantModal={(student) => setGrantTargetStudent(student)}
             />
           ) : currentView === 'ADVISORS' && currentUser ? (
@@ -1282,9 +1402,10 @@ export default function App() {
               advisors={advisors}
               viewMode={currentView === 'STUDENT_LIST' ? 'STUDENT_LIST' : 'OVERVIEW'}
               onSelectStudent={handleSelectStudent}
-              onOpenConductAction={(student, defaultType) =>
-                setConductActionTarget({ student, defaultType })
-              }
+              onOpenConductAction={(student, defaultType) => {
+                if (!currentUser || currentUser.role === 'teacher') return;
+                setConductActionTarget({ student, defaultType });
+              }}
               onOpenGrantModal={(student) => setGrantTargetStudent(student)}
               onOpenHonourModal={() => setCurrentView('HONOUR')}
               onOpenImportModal={() => setCurrentView('IMPORT')}
@@ -1363,7 +1484,7 @@ export default function App() {
       )}
 
       {/* 3. Conduct Action Modal (Deduct / Add Score) */}
-      {conductActionTarget && currentUser && currentUser.role !== 'student' && (
+      {conductActionTarget && currentUser && currentUser.role !== 'student' && currentUser.role !== 'teacher' && (
         <ConductActionModal
           student={conductActionTarget.student}
           defaultType={conductActionTarget.defaultType}

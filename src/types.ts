@@ -40,9 +40,17 @@ export type EntryLevel = 'ม.1' | 'ม.4';
 export type AppView =
   | 'HOME'
   | 'DASHBOARD'
+  | 'CHECK_SCORE'
   | 'LOOKUP'
   | 'ADVISORS'
   | 'HONOUR'
+  | 'REPORTS'
+  | 'REPORT_INDIVIDUAL'
+  | 'REPORT_GRADE_LEVEL'
+  | 'REPORT_FULL_100'
+  | 'REPORT_HONOUR_100'
+  | 'REPORT_POINTS_ADDED'
+  | 'REPORT_POINTS_DEDUCTED'
   | 'STUDENT_LIST'
   | 'IMPORT'
   | 'IMPORT_CONDUCT'
@@ -156,6 +164,11 @@ export interface SystemSettings {
 
   // บังคับให้ต้องเข้าสู่ระบบก่อนเข้าใช้งาน
   requireLoginBeforeAccess?: boolean;
+
+  // อนุญาตให้นักเรียนทุกคนตรวจสอบคะแนนตัวเองได้ (คลิกเดียว โดย ผู้ดูแล และ เจ้าหน้าที่)
+  allowAllStudentsScoreCheck?: boolean;
+  allStudentsScoreCheckGrantedBy?: string; // ผู้กดอนุญาต (admin/staff)
+  allStudentsScoreCheckGrantedAt?: string; // วันที่เวลากดอนุญาต
 
   // สิทธิ์การเข้าถึงเมนูต่าง ๆ ในระบบ (ควบคุมโดยผู้ดูแลหลัก)
   menuPermissions?: MenuPermissionsMap;

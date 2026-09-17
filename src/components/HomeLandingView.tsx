@@ -31,7 +31,8 @@ import {
   Star,
   ShieldAlert,
   UserCheck,
-  Check
+  Check,
+  ClipboardCheck
 } from 'lucide-react';
 
 interface HomeLandingViewProps {
@@ -177,11 +178,21 @@ export const HomeLandingView: React.FC<HomeLandingViewProps> = ({
             <div className="flex flex-wrap items-center gap-3 pt-2">
               <button
                 type="button"
+                id="home-check-score-btn"
+                onClick={() => onNavigate('CHECK_SCORE')}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-sm shadow-md transition-all flex items-center gap-2 cursor-pointer hover:shadow-emerald-500/25"
+              >
+                <ClipboardCheck className="w-4 h-4" />
+                <span>ตรวจสอบคะแนนนักเรียน</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => onNavigate('LOOKUP')}
-                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-sm shadow-md transition-all flex items-center gap-2 cursor-pointer hover:shadow-indigo-500/25"
+                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-sm shadow-md transition-all flex items-center gap-2 cursor-pointer hover:shadow-indigo-500/25"
               >
                 <Search className="w-4 h-4" />
-                <span>ค้นหาคะแนนนักเรียนทั้งหมด</span>
+                <span>ค้นหาคะแนนนักเรียน</span>
               </button>
 
               <button

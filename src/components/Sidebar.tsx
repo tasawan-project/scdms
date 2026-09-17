@@ -24,7 +24,13 @@ import {
   Key,
   ShieldCheck,
   FileSpreadsheet,
-  Settings
+  Settings,
+  Printer,
+  User,
+  CheckCircle2,
+  PlusCircle,
+  MinusCircle,
+  ClipboardCheck
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -59,6 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenChangePassword
 }) => {
   // Collapsible sub-menus: default to open as per standard admin dashboards
+  const [reportsOpen, setReportsOpen] = useState<boolean>(true);
   const [studentMgmtOpen, setStudentMgmtOpen] = useState<boolean>(true);
   const [settingsMgmtOpen, setSettingsMgmtOpen] = useState<boolean>(true);
 
@@ -207,6 +214,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         )}
 
+        {/* Item: ตรวจสอบคะแนน */}
+        {canAccess('CHECK_SCORE') && (
+          <button
+            type="button"
+            id="sidebar-nav-check-score"
+            onClick={() => handleNav('CHECK_SCORE')}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-bold transition-all cursor-pointer text-left ${
+              currentView === 'CHECK_SCORE'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <ClipboardCheck className="w-4 h-4 shrink-0" />
+              <span>ตรวจสอบคะแนน</span>
+            </div>
+            {systemSettings?.allowAllStudentsScoreCheck ? (
+              <span
+                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                  currentView === 'CHECK_SCORE' ? 'bg-indigo-700 text-emerald-200' : 'bg-emerald-100 text-emerald-800'
+                }`}
+              >
+                เปิดตรวจ
+              </span>
+            ) : (
+              <span
+                className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${
+                  currentView === 'CHECK_SCORE' ? 'bg-indigo-700 text-slate-200' : 'bg-slate-100 text-slate-500'
+                }`}
+              >
+                ตรวจสิทธิ์
+              </span>
+            )}
+          </button>
+        )}
+
         {/* Item 2: ค้นหานักเรียน */}
         {canAccess('LOOKUP') && (
           <button
@@ -271,6 +314,194 @@ export const Sidebar: React.FC<SidebarProps> = ({
               100+
             </span>
           </button>
+        )}
+
+        {/* ========================================================================= */}
+        {/* GROUP 0: รายงานคะแนนความประพฤติ (SUB-MENU) */}
+        {/* ========================================================================= */}
+        {canAccess('REPORTS') && (
+          <div className="pt-1">
+            {/* Header / Toggle Button */}
+            <button
+              type="button"
+              id="sidebar-nav-reports-toggle"
+              onClick={() => setReportsOpen(prev => !prev)}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-colors cursor-pointer ${
+                currentView === 'REPORTS' ||
+                currentView === 'REPORT_INDIVIDUAL' ||
+                currentView === 'REPORT_GRADE_LEVEL' ||
+                currentView === 'REPORT_FULL_100' ||
+                currentView === 'REPORT_HONOUR_100' ||
+                currentView === 'REPORT_POINTS_ADDED' ||
+                currentView === 'REPORT_POINTS_DEDUCTED'
+                  ? 'bg-indigo-50/90 text-indigo-950 border border-indigo-200/80 shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Printer className={`w-4 h-4 shrink-0 ${
+                  currentView.startsWith('REPORT') || currentView === 'REPORTS' ? 'text-indigo-600' : 'text-slate-500'
+                }`} />
+                <span className="font-bold text-xs normal-case">รายงานคะแนนความประพฤติ</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {reportsOpen ? (
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                ) : (
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                )}
+              </div>
+            </button>
+
+            {/* Sub-items */}
+            {reportsOpen && (
+              <div className="pl-2 pr-1 space-y-1 mt-1.5 border-l-2 border-indigo-100 ml-3">
+                {/* รายงานรายบุคคล */}
+                <button
+                  type="button"
+                  id="sidebar-report-individual"
+                  onClick={() => handleNav('REPORT_INDIVIDUAL')}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-left ${
+                    currentView === 'REPORT_INDIVIDUAL' || currentView === 'REPORTS'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <User className={`w-3.5 h-3.5 shrink-0 ${
+                      currentView === 'REPORT_INDIVIDUAL' || currentView === 'REPORTS' ? 'text-white' : 'text-indigo-500'
+                    }`} />
+                    <span className="truncate">รายงานรายบุคคล</span>
+                  </div>
+                  <span className={`text-[10px] px-1 py-0.2 rounded font-mono ${
+                    currentView === 'REPORT_INDIVIDUAL' || currentView === 'REPORTS' ? 'bg-indigo-700 text-white' : 'text-slate-400'
+                  }`}>
+                    ค้นหา
+                  </span>
+                </button>
+
+                {/* รายงานแบบระดับชั้น */}
+                <button
+                  type="button"
+                  id="sidebar-report-grade-level"
+                  onClick={() => handleNav('REPORT_GRADE_LEVEL')}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-left ${
+                    currentView === 'REPORT_GRADE_LEVEL'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <Users className={`w-3.5 h-3.5 shrink-0 ${
+                      currentView === 'REPORT_GRADE_LEVEL' ? 'text-white' : 'text-indigo-500'
+                    }`} />
+                    <span className="truncate">รายงานแบบระดับชั้น</span>
+                  </div>
+                  <span className={`text-[10px] px-1 py-0.2 rounded font-mono ${
+                    currentView === 'REPORT_GRADE_LEVEL' ? 'bg-indigo-700 text-white' : 'text-slate-400'
+                  }`}>
+                    ม.1-6
+                  </span>
+                </button>
+
+                {/* นักเรียนครบ 100 คะแนน */}
+                <button
+                  type="button"
+                  id="sidebar-report-full-100"
+                  onClick={() => handleNav('REPORT_FULL_100')}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-left ${
+                    currentView === 'REPORT_FULL_100'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${
+                      currentView === 'REPORT_FULL_100' ? 'text-white' : 'text-emerald-500'
+                    }`} />
+                    <span className="truncate">นักเรียนครบ 100 คะแนน</span>
+                  </div>
+                  <span className={`text-[10px] px-1 py-0.2 rounded font-bold ${
+                    currentView === 'REPORT_FULL_100' ? 'bg-emerald-700 text-white' : 'text-emerald-600'
+                  }`}>
+                    100
+                  </span>
+                </button>
+
+                {/* นักเรียนดีเด่น 100+ */}
+                <button
+                  type="button"
+                  id="sidebar-report-honour-100"
+                  onClick={() => handleNav('REPORT_HONOUR_100')}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-left ${
+                    currentView === 'REPORT_HONOUR_100'
+                      ? 'bg-violet-700 text-white shadow-xs'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <Award className={`w-3.5 h-3.5 shrink-0 ${
+                      currentView === 'REPORT_HONOUR_100' ? 'text-white' : 'text-amber-500'
+                    }`} />
+                    <span className="truncate">นักเรียนดีเด่น 100+</span>
+                  </div>
+                  <span className={`text-[10px] px-1 py-0.2 rounded font-bold ${
+                    currentView === 'REPORT_HONOUR_100' ? 'bg-violet-800 text-amber-300' : 'text-amber-600'
+                  }`}>
+                    100+
+                  </span>
+                </button>
+
+                {/* รายงานการเพิ่มคะแนน */}
+                <button
+                  type="button"
+                  id="sidebar-report-points-added"
+                  onClick={() => handleNav('REPORT_POINTS_ADDED')}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-left ${
+                    currentView === 'REPORT_POINTS_ADDED'
+                      ? 'bg-teal-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <PlusCircle className={`w-3.5 h-3.5 shrink-0 ${
+                      currentView === 'REPORT_POINTS_ADDED' ? 'text-white' : 'text-teal-500'
+                    }`} />
+                    <span className="truncate">รายงานการเพิ่มคะแนน</span>
+                  </div>
+                  <span className={`text-[10px] px-1 py-0.2 rounded font-bold ${
+                    currentView === 'REPORT_POINTS_ADDED' ? 'bg-teal-700 text-white' : 'text-teal-600'
+                  }`}>
+                    +แต้ม
+                  </span>
+                </button>
+
+                {/* รายงานการหักคะแนน */}
+                <button
+                  type="button"
+                  id="sidebar-report-points-deducted"
+                  onClick={() => handleNav('REPORT_POINTS_DEDUCTED')}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-left ${
+                    currentView === 'REPORT_POINTS_DEDUCTED'
+                      ? 'bg-rose-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <MinusCircle className={`w-3.5 h-3.5 shrink-0 ${
+                      currentView === 'REPORT_POINTS_DEDUCTED' ? 'text-white' : 'text-rose-500'
+                    }`} />
+                    <span className="truncate">รายงานการหักคะแนน</span>
+                  </div>
+                  <span className={`text-[10px] px-1 py-0.2 rounded font-bold ${
+                    currentView === 'REPORT_POINTS_DEDUCTED' ? 'bg-rose-700 text-white' : 'text-rose-600'
+                  }`}>
+                    -แต้ม
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
         )}
 
         {/* ========================================================================= */}

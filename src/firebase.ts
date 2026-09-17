@@ -142,6 +142,7 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   currentAcademicYear: 2569,
   currentTerm: 1,
   requireLoginBeforeAccess: true,
+  allowAllStudentsScoreCheck: false,
   criticalScoreThreshold: 70, // วิกฤต: หัก 70 คะแนน หรือเหลือ 30
   watchScoreThreshold: 30,    // เฝ้าระวัง: หัก 30 คะแนน หรือเหลือ 70
   cautionScoreThreshold: 20,  // ตักเตือน: หัก 20 คะแนน หรือเหลือ 80
@@ -237,6 +238,44 @@ export async function revokeStudentAccessGrant(grantId: string): Promise<void> {
     isActive: false,
     revokedAt: new Date().toISOString()
   });
+}
+
+/**
+ * Batch save multiple student access grants
+ */
+export async function batchSaveStudentAccessGrants(grants: StudentAccessGrant[]): Promise<void> {
+  if (!grants || grants.length === 0) return;
+  const chunkSize = 400;
+  for (let i = 0; i < grants.length; i += chunkSize) {
+    const chunk = grants.slice(i, i + chunkSize);
+    const batch = writeBatch(db);
+    for (const g of chunk) {
+      const docRef = doc(collection(db, ACCESS_GRANTS_COLLECTION), g.id);
+      batch.set(docRef, cleanForFirestore(g), { merge: true });
+    }
+    await batch.commit();
+  }
+}
+
+/**
+ * Batch revoke active student access grants
+ */
+export async function batchRevokeAllStudentAccessGrants(grantIds: string[]): Promise<void> {
+  if (!grantIds || grantIds.length === 0) return;
+  const chunkSize = 400;
+  const now = new Date().toISOString();
+  for (let i = 0; i < grantIds.length; i += chunkSize) {
+    const chunk = grantIds.slice(i, i + chunkSize);
+    const batch = writeBatch(db);
+    for (const id of chunk) {
+      const docRef = doc(collection(db, ACCESS_GRANTS_COLLECTION), id);
+      batch.update(docRef, {
+        isActive: false,
+        revokedAt: now
+      });
+    }
+    await batch.commit();
+  }
 }
 
 /**

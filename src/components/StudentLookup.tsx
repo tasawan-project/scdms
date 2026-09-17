@@ -110,9 +110,10 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
   const cutoffs = useMemo(() => parseConductCutoffs(systemSettings), [systemSettings]);
   const userRole = currentUser?.role || 'student';
   const isStudentView = userRole === 'student' || studentGrant !== null;
-  const canDeductAndAdd = userRole === 'admin' || userRole === 'staff' || userRole === 'teacher';
+  // ผู้ใช้งาน "Teacher (ระดับ 1)" ไม่สามารถ เพิ่ม หรือ ลบ/ตัด คะแนนพฤติกรรมได้ ให้ดูได้อย่างเดียว แต่ดูคะแนนได้ทุกคน
+  const canDeductAndAdd = userRole === 'admin' || userRole === 'staff';
   const canGrantAccess = userRole === 'admin' || userRole === 'staff' || userRole === 'teacher';
-  const canManageLogs = userRole === 'admin' || userRole === 'staff' || userRole === 'teacher';
+  const canManageLogs = userRole === 'admin' || userRole === 'staff';
 
   // Build a unified standard behaviors lookup list
   const allBehaviors = useMemo(() => {
@@ -266,7 +267,7 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
   const [tableSortDirection, setTableSortDirection] = useState<'asc' | 'desc'>('desc');
   const [expandedTableStudentIds, setExpandedTableStudentIds] = useState<Set<string>>(new Set());
   const [tablePage, setTablePage] = useState<number>(1);
-  const [tablePageSize, setTablePageSize] = useState<number>(20);
+  const [tablePageSize, setTablePageSize] = useState<number>(25);
 
   // Active students only
   const activeStudents = useMemo(() => (students || []).filter(s => s && s.status === 'ACTIVE'), [students]);
@@ -468,6 +469,7 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
   ]);
 
   const paginatedTableStudents = useMemo(() => {
+    if (tablePageSize >= 999999) return filteredTableStudents;
     const start = (tablePage - 1) * tablePageSize;
     return filteredTableStudents.slice(start, start + tablePageSize);
   }, [filteredTableStudents, tablePage, tablePageSize]);
@@ -593,7 +595,7 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
   const [activeTab, setActiveTab] = useState<'ALL' | 'DEDUCT' | 'ADD'>('ALL');
   const [expandedLogIds, setExpandedLogIds] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(20);
+  const [pageSize, setPageSize] = useState<number>(25);
 
   // Reset page when activeTab or selectedStudent changes
   useEffect(() => {
@@ -667,6 +669,7 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
   });
 
   const paginatedLogs = useMemo(() => {
+    if (pageSize >= 999999) return filteredLogs;
     const start = (currentPage - 1) * pageSize;
     return filteredLogs.slice(start, start + pageSize);
   }, [filteredLogs, currentPage, pageSize]);
@@ -771,8 +774,8 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
               </div>
             </form>
 
-            {/* Quick Action Tools for Staff/Admin/Teacher */}
-            {(userRole === 'admin' || userRole === 'staff' || userRole === 'teacher') && onOpenAddStudent && (
+            {/* Quick Action Tools for Staff/Admin */}
+            {(userRole === 'admin' || userRole === 'staff') && onOpenAddStudent && (
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <button
                   type="button"
@@ -966,7 +969,7 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                       currentAcademicYear={currentAcademicYear}
                       size="full"
                       fitMode={photoFitMode}
-                      canEditPhoto={userRole === 'admin' || userRole === 'staff' || userRole === 'advisor' || userRole === 'teacher'}
+                      canEditPhoto={userRole === 'admin' || userRole === 'staff'}
                       onUpdatePhoto={onUpdateStudentPhoto}
                     />
                     {currentStudent?.photoUrl && (
@@ -1105,6 +1108,13 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                     </>
                   )}
 
+                  {userRole === 'teacher' && (
+                    <div className="flex-1 py-2 px-3 bg-indigo-50/80 border border-indigo-200/80 rounded-xl text-indigo-900 text-xs font-semibold flex items-center justify-center gap-1.5">
+                      <Eye className="w-4 h-4 text-indigo-600" />
+                      <span>สิทธิ์ครูผู้สอน (ระดับ 1 - ดูคะแนนได้ทุกคน ไม่สามารถเพิ่ม/ตัดคะแนนได้)</span>
+                    </div>
+                  )}
+
                   {canGrantAccess && (
                     <button
                       onClick={() => onOpenGrantModal(currentStudent)}
@@ -1115,7 +1125,7 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                     </button>
                   )}
 
-                  {onOpenEditStudent && (userRole === 'admin' || userRole === 'staff' || userRole === 'teacher') && (
+                  {onOpenEditStudent && (userRole === 'admin' || userRole === 'staff') && (
                     <button
                       onClick={() => onOpenEditStudent(currentStudent)}
                       className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-colors flex items-center justify-center cursor-pointer"
@@ -1407,14 +1417,18 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                   </div>
                 )}
 
-                {/* Pagination when filtered logs > 20 */}
-                {filteredLogs.length > 20 && (
+                {/* Pagination when filtered logs > 0 */}
+                {filteredLogs.length > 0 && (
                   <Pagination
                     currentPage={currentPage}
                     totalItems={filteredLogs.length}
                     pageSize={pageSize}
                     onPageChange={setCurrentPage}
-                    onPageSizeChange={setPageSize}
+                    onPageSizeChange={(size) => {
+                      setPageSize(size);
+                      setCurrentPage(1);
+                    }}
+                    pageSizeOptions={[25, 50, 100, 'ALL']}
                     itemLabel="รายการ"
                     className="pt-2"
                   />
@@ -1503,7 +1517,14 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                 )}
               </button>
 
-              {(userRole === 'admin' || userRole === 'staff' || userRole === 'teacher') && onOpenAddStudent && (
+              {userRole === 'teacher' && (
+                <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-800 text-[11px] font-semibold">
+                  <Eye className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>โหมดดูข้อมูล (สิทธิ์ระดับ 1 - ดูคะแนนได้ทุกคน)</span>
+                </span>
+              )}
+
+              {(userRole === 'admin' || userRole === 'staff') && onOpenAddStudent && (
                 <button
                   type="button"
                   onClick={onOpenAddStudent}
@@ -1933,7 +1954,7 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                                         </button>
                                       )}
 
-                                      {onOpenEditStudent && (userRole === 'admin' || userRole === 'staff' || userRole === 'teacher') && (
+                                      {onOpenEditStudent && (userRole === 'admin' || userRole === 'staff') && (
                                         <button
                                           type="button"
                                           onClick={() => onOpenEditStudent(student)}
@@ -1988,7 +2009,11 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                   totalItems={filteredTableStudents.length}
                   pageSize={tablePageSize}
                   onPageChange={setTablePage}
-                  onPageSizeChange={setTablePageSize}
+                  onPageSizeChange={(size) => {
+                    setTablePageSize(size);
+                    setTablePage(1);
+                  }}
+                  pageSizeOptions={[25, 50, 100, 'ALL']}
                   itemLabel="คน"
                 />
               </div>
