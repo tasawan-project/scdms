@@ -64,7 +64,8 @@ export type AppView =
   | 'SETTINGS_USERS'
   | 'SETTINGS_DATABASE'
   | 'SETTINGS_GRANTS'
-  | 'SETTINGS_MENU_PERMISSIONS';
+  | 'SETTINGS_MENU_PERMISSIONS'
+  | 'SETTINGS_USAGE_STATS';
 
 export type ConductType = 'DEDUCT' | 'ADD'; // หักคะแนน หรือ เพิ่มคะแนน
 

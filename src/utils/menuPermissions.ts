@@ -517,6 +517,18 @@ export const ALL_MENU_DEFINITIONS: MenuItemDefinition[] = [
     defaultAllowGuest: false,
     defaultEnabled: true,
     iconName: 'Sparkles'
+  },
+  {
+    key: 'SETTINGS_USAGE_STATS',
+    title: 'สถิติการใช้งานระบบและจำลองโควต้าฐานข้อมูล',
+    shortTitle: 'สถิติการใช้งาน & โควต้า',
+    category: 'SETTINGS',
+    categoryName: 'ตั้งค่าระบบ',
+    description: 'จำลองจำนวนการทำงานและวิเคราะห์โควต้าฟรีของ Cloud Firestore และ Realtime Database ตามสถานการณ์จำลอง',
+    defaultRoles: ['admin', 'staff'],
+    defaultAllowGuest: false,
+    defaultEnabled: true,
+    iconName: 'Activity'
   }
 ];
 
@@ -582,7 +594,8 @@ export function canUserAccessMenu(
       'SETTINGS_USERS',
       'SETTINGS_DATABASE',
       'SETTINGS_GRANTS',
-      'SETTINGS_MENU_PERMISSIONS'
+      'SETTINGS_MENU_PERMISSIONS',
+      'SETTINGS_USAGE_STATS'
     ];
     return settingsSubViews.some(subView =>
       canUserAccessMenu(subView, user, studentGrant, effectivePermissions)

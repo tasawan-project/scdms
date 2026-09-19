@@ -7,7 +7,8 @@ import {
   Shield,
   Database,
   Key,
-  ShieldCheck
+  ShieldCheck,
+  Activity
 } from 'lucide-react';
 
 interface SettingsTabBarProps {
@@ -52,6 +53,12 @@ const SETTINGS_TABS: SettingsTabItem[] = [
     view: 'SETTINGS_GRANTS',
     label: 'ประวัติสิทธิ์นักเรียน',
     icon: Key
+  },
+  {
+    view: 'SETTINGS_USAGE_STATS',
+    label: 'สถิติการใช้งาน & โควต้า',
+    badge: 'Simulator',
+    icon: Activity
   },
   {
     view: 'SETTINGS_MENU_PERMISSIONS',

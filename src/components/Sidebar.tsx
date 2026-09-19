@@ -30,7 +30,8 @@ import {
   CheckCircle2,
   PlusCircle,
   MinusCircle,
-  ClipboardCheck
+  ClipboardCheck,
+  Activity
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -97,6 +98,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     canAccess('SETTINGS_USERS') ||
     canAccess('SETTINGS_DATABASE') ||
     canAccess('SETTINGS_GRANTS') ||
+    canAccess('SETTINGS_USAGE_STATS') ||
     canAccess('SETTINGS_MENU_PERMISSIONS');
 
   // Helper to handle navigation click (closes mobile drawer automatically)
@@ -829,7 +831,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </button>
                 )}
 
-                {/* 2.6 จัดการสิทธิ์เข้าถึงเมนู (เฉพาะผู้ดูแลหลักเท่านั้น) */}
+                {/* 2.6 สถิติการใช้งาน & จำลองโควต้า */}
+                {canAccess('SETTINGS_USAGE_STATS') && (
+                  <button
+                    type="button"
+                    onClick={() => handleNav('SETTINGS_USAGE_STATS')}
+                    className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer text-left ${
+                      isSettingsSubActive('SETTINGS_USAGE_STATS')
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <Activity className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">สถิติการใช้งาน & โควต้า</span>
+                    </div>
+                    <span
+                      className={`text-[9px] font-bold px-1.5 py-0.2 rounded shrink-0 ${
+                        isSettingsSubActive('SETTINGS_USAGE_STATS')
+                          ? 'bg-indigo-700 text-white'
+                          : 'bg-emerald-100 text-emerald-800'
+                      }`}
+                    >
+                      Quota Sim
+                    </span>
+                  </button>
+                )}
+
+                {/* 2.7 จัดการสิทธิ์เข้าถึงเมนู (เฉพาะผู้ดูแลหลักเท่านั้น) */}
                 {canAccess('SETTINGS_MENU_PERMISSIONS') && (
                   <button
                     type="button"

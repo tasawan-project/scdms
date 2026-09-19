@@ -81,6 +81,7 @@ import { StandardBehaviorsSettings } from './components/StandardBehaviorsSetting
 import { UserManagementSettings } from './components/UserManagementSettings';
 import { DatabaseSettings } from './components/DatabaseSettings';
 import { StudentGrantsSettings } from './components/StudentGrantsSettings';
+import { SystemUsageStatsSettings } from './components/SystemUsageStatsSettings';
 import { MenuPermissionsSettings } from './components/MenuPermissionsSettings';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { canUserAccessMenu, canDeleteTargetUser, getUserRoleLevel, getRoleLevelByRoleName } from './utils/menuPermissions';
@@ -1415,6 +1416,14 @@ export default function App() {
                   currentUser={currentUser}
                   onClose={() => setCurrentView('DASHBOARD')}
                   onRevokeGrant={handleRevokeGrant}
+                />
+              ) : currentView === 'SETTINGS_USAGE_STATS' ? (
+                <SystemUsageStatsSettings
+                  currentUser={currentUser}
+                  students={students}
+                  conductLogs={conductLogs}
+                  standardBehaviors={standardBehaviors}
+                  onClose={() => setCurrentView('DASHBOARD')}
                 />
               ) : (
                 <SchoolBrandingSettings
