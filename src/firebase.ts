@@ -31,6 +31,7 @@ import {
 } from './types';
 import { calculateStudentGrade } from './utils/conductLogic';
 import { INITIAL_STANDARD_BEHAVIORS } from './data/standardBehaviorsData';
+import { recordRealOperation } from './utils/actualUsageTracker';
 import firebaseConfig from '../firebase-applet-config.json';
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApps()[0];
@@ -280,6 +281,7 @@ export async function saveAppUser(user: AppUser): Promise<void> {
       updatedAt: new Date().toISOString()
     });
     await setDoc(docRef, payload, { merge: true });
+    recordRealOperation('WRITE', 1, USERS_COLLECTION, 'SAVE_APP_USER', `บันทึกผู้ใช้ ${user.username}`);
   } catch (firestoreErr: any) {
     console.warn('saveAppUser Firestore error (saved to local cache successfully):', firestoreErr);
   }
@@ -305,6 +307,7 @@ export async function deleteAppUser(userId: string): Promise<void> {
   try {
     const docRef = doc(db, USERS_COLLECTION, userId);
     await deleteDoc(docRef);
+    recordRealOperation('DELETE', 1, USERS_COLLECTION, 'DELETE_APP_USER', `ลบผู้ใช้ ${userId}`);
   } catch (firestoreErr) {
     console.warn('deleteAppUser Firestore error (deleted from local cache successfully):', firestoreErr);
   }
@@ -316,6 +319,7 @@ export async function deleteAppUser(userId: string): Promise<void> {
 export async function saveStudentAccessGrant(grant: StudentAccessGrant): Promise<void> {
   const docRef = doc(db, ACCESS_GRANTS_COLLECTION, grant.id);
   await setDoc(docRef, cleanForFirestore(grant), { merge: true });
+  recordRealOperation('WRITE', 1, ACCESS_GRANTS_COLLECTION, 'SAVE_GRANT', `ออกสิทธิ์ให้นักเรียน ${grant.studentId}`);
 }
 
 /**
@@ -327,6 +331,7 @@ export async function revokeStudentAccessGrant(grantId: string): Promise<void> {
     isActive: false,
     revokedAt: new Date().toISOString()
   });
+  recordRealOperation('WRITE', 1, ACCESS_GRANTS_COLLECTION, 'REVOKE_GRANT', `ยกเลิกสิทธิ์ ${grantId}`);
 }
 
 /**
@@ -344,6 +349,7 @@ export async function batchSaveStudentAccessGrants(grants: StudentAccessGrant[])
     }
     await batch.commit();
   }
+  recordRealOperation('WRITE', grants.length, ACCESS_GRANTS_COLLECTION, 'BATCH_SAVE_GRANTS', `ออกสิทธิ์กลุ่ม ${grants.length} รายการ`);
 }
 
 /**
@@ -365,6 +371,7 @@ export async function batchRevokeAllStudentAccessGrants(grantIds: string[]): Pro
     }
     await batch.commit();
   }
+  recordRealOperation('WRITE', grantIds.length, ACCESS_GRANTS_COLLECTION, 'BATCH_REVOKE_GRANTS', `ยกเลิกสิทธิ์กลุ่ม ${grantIds.length} รายการ`);
 }
 
 /**
@@ -392,6 +399,7 @@ export async function saveStudentToDb(student: Student): Promise<void> {
     updatedAt: new Date().toISOString()
   });
   await setDoc(docRef, payload, { merge: true });
+  recordRealOperation('WRITE', 1, STUDENTS_COLLECTION, 'SAVE_STUDENT', `บันทึกข้อมูลนักเรียน ${student.id} ${student.title || ''}${student.firstName} ${student.lastName}`);
 }
 
 /**
@@ -414,6 +422,7 @@ export async function batchSaveStudents(students: Student[]): Promise<number> {
     }
     await batch.commit();
   }
+  recordRealOperation('WRITE', count, STUDENTS_COLLECTION, 'BATCH_SAVE_STUDENTS', `นำเข้านักเรียน ${count} คน`);
   return count;
 }
 
@@ -438,6 +447,7 @@ export async function recordConductLogTransaction(
   }), { merge: true });
 
   await batch.commit();
+  recordRealOperation('WRITE', 2, CONDUCT_LOGS_COLLECTION, 'RECORD_CONDUCT_LOG', `บันทึกคะแนน ${log.studentId} (${log.type === 'DEDUCT' ? 'หัก' : 'เพิ่ม'} ${log.points} คะแนน)`);
 }
 
 /**
@@ -479,6 +489,8 @@ export async function batchRecordConductLogsTransaction(
     await batch.commit();
   }
 
+  recordRealOperation('WRITE', logs.length + updatedStudents.length, CONDUCT_LOGS_COLLECTION, 'BATCH_RECORD_CONDUCT_LOGS', `บันทึกคะแนนกลุ่ม ${logs.length} รายการ (ปรับปรุงนักเรียน ${updatedStudents.length} คน)`);
+
   return {
     successLogsCount: logs.length,
     affectedStudentsCount: updatedStudents.length
@@ -506,6 +518,7 @@ export async function updateConductLogTransaction(
   }), { merge: true });
 
   await batch.commit();
+  recordRealOperation('WRITE', 2, CONDUCT_LOGS_COLLECTION, 'UPDATE_CONDUCT_LOG', `แก้ไขรายการคะแนน ${updatedLog.id}`);
 }
 
 /**
@@ -529,6 +542,8 @@ export async function deleteConductLogTransaction(
   }), { merge: true });
 
   await batch.commit();
+  recordRealOperation('DELETE', 1, CONDUCT_LOGS_COLLECTION, 'DELETE_CONDUCT_LOG', `ลบรายการคะแนน ${logId}`);
+  recordRealOperation('WRITE', 1, STUDENTS_COLLECTION, 'UPDATE_STUDENT_ON_DELETE_LOG', `คืนคะแนนนักเรียน ${updatedStudent.id}`);
 }
 
 /**
@@ -537,6 +552,7 @@ export async function deleteConductLogTransaction(
 export async function deleteStudentFromDb(studentId: string): Promise<void> {
   const docRef = doc(db, STUDENTS_COLLECTION, studentId);
   await deleteDoc(docRef);
+  recordRealOperation('DELETE', 1, STUDENTS_COLLECTION, 'DELETE_STUDENT', `ลบนักเรียน ${studentId}`);
 }
 
 /**
@@ -555,6 +571,7 @@ export async function batchDeleteStudents(studentIds: string[]): Promise<number>
     }
     await batch.commit();
   }
+  recordRealOperation('DELETE', count, STUDENTS_COLLECTION, 'BATCH_DELETE_STUDENTS', `ลบนักเรียนกลุ่ม ${count} คน`);
   return count;
 }
 

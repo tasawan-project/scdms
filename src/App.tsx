@@ -93,10 +93,10 @@ import { YearResetModal } from './components/YearResetModal';
 import { CriticalAlertView } from './components/CriticalAlertView';
 import { ConductReportView, ConductReportTab } from './components/ConductReportView';
 import { StudentPhotoManagerModal } from './components/StudentPhotoManagerModal';
+import { recordRealOperation } from './utils/actualUsageTracker';
 import { ScoreCheckView } from './components/ScoreCheckView';
 import { AddStudentModal } from './components/AddStudentModal';
 import { EditStudentModal } from './components/EditStudentModal';
-import { SettingsTabBar } from './components/SettingsTabBar';
 import { Loader2, ShieldAlert } from 'lucide-react';
 
 const getActiveReportTabFromView = (view: AppView): ConductReportTab => {
@@ -268,6 +268,9 @@ export default function App() {
           });
           setStudents(loaded);
           setLoading(false);
+          if (!snapshot.empty) {
+            recordRealOperation('READ', snapshot.size, STUDENTS_COLLECTION, 'REALTIME_SNAPSHOT_STUDENTS', `โหลดรายชื่อนักเรียน ${snapshot.size} คน`);
+          }
         },
         (err) => {
           console.warn('Firestore students error:', err);
@@ -289,6 +292,9 @@ export default function App() {
             }
           });
           setConductLogs(loadedLogs);
+          if (!snapshot.empty) {
+            recordRealOperation('READ', snapshot.size, CONDUCT_LOGS_COLLECTION, 'REALTIME_SNAPSHOT_LOGS', `โหลดประวัติคะแนน ${snapshot.size} รายการ`);
+          }
         },
         (err) => {
           console.warn('Firestore logs snapshot error:', err);
@@ -1351,13 +1357,6 @@ export default function App() {
             />
           ) : (currentView === 'SETTINGS' || currentView.startsWith('SETTINGS_')) && currentUser ? (
             <div className="w-full space-y-4">
-              <SettingsTabBar
-                currentView={currentView}
-                currentUser={currentUser}
-                studentGrant={studentGrant}
-                systemSettings={systemSettings}
-                onChangeView={handleChangeView}
-              />
               {currentView === 'SETTINGS_BEHAVIORS' ? (
                 <StandardBehaviorsSettings
                   standardBehaviors={standardBehaviors}
@@ -1423,6 +1422,7 @@ export default function App() {
                   students={students}
                   conductLogs={conductLogs}
                   standardBehaviors={standardBehaviors}
+                  users={users}
                   onClose={() => setCurrentView('DASHBOARD')}
                 />
               ) : (

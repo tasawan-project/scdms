@@ -831,7 +831,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </button>
                 )}
 
-                {/* 2.6 สถิติการใช้งาน & จำลองโควต้า */}
+                {/* 2.6 สถิติการใช้งาน & โควต้าฐานข้อมูลจริง */}
                 {canAccess('SETTINGS_USAGE_STATS') && (
                   <button
                     type="button"
@@ -853,7 +853,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           : 'bg-emerald-100 text-emerald-800'
                       }`}
                     >
-                      Quota Sim
+                      Live Data
                     </span>
                   </button>
                 )}
