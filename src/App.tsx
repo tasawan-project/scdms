@@ -1016,7 +1016,11 @@ export default function App() {
           canClose={false}
           users={users}
           students={students}
+          conductLogs={conductLogs}
           accessGrants={accessGrants}
+          advisors={advisors}
+          currentAcademicYear={systemSettings.currentAcademicYear}
+          standardBehaviors={standardBehaviors}
           onStaffLogin={handleStaffLogin}
           onLoginStaff={handleStaffLogin}
           onStudentAuthorizedView={handleStudentAuthorizedView}
@@ -1509,7 +1513,11 @@ export default function App() {
           onClose={() => setShowLoginModal(false)}
           users={users}
           students={students}
+          conductLogs={conductLogs}
           accessGrants={accessGrants}
+          advisors={advisors}
+          currentAcademicYear={systemSettings.currentAcademicYear}
+          standardBehaviors={standardBehaviors}
           onStaffLogin={handleStaffLogin}
           onLoginStaff={handleStaffLogin}
           onStudentAuthorizedView={handleStudentAuthorizedView}
