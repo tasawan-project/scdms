@@ -27,10 +27,13 @@ import {
   StudentAccessGrant,
   HomeroomAdvisor,
   GradeLevel,
-  StandardConductBehavior
+  StandardConductBehavior,
+  Dormitory,
+  StudentGender
 } from './types';
 import { calculateStudentGrade } from './utils/conductLogic';
 import { INITIAL_STANDARD_BEHAVIORS } from './data/standardBehaviorsData';
+import { DEFAULT_DORMITORIES, syncAllStudentsWithDormitories } from './utils/dormitoryLogic';
 import { recordRealOperation } from './utils/actualUsageTracker';
 import firebaseConfig from '../firebase-applet-config.json';
 
@@ -63,6 +66,7 @@ export const USERS_COLLECTION = 'app_users';
 export const ACCESS_GRANTS_COLLECTION = 'student_access_grants';
 export const ADVISORS_COLLECTION = 'homeroom_advisors';
 export const STANDARD_BEHAVIORS_COLLECTION = 'standard_conduct_behaviors';
+export const DORMITORIES_COLLECTION = 'dormitories';
 
 /**
  * Helper to strip all `undefined` fields from an object so Firestore never throws:
@@ -1489,6 +1493,230 @@ export async function clearSampleStandardBehaviors(): Promise<number> {
     }
   }
   return count;
+}
+
+/**
+ * ดึงข้อมูลหอพักทั้งหมด 1 - 6 จาก Firestore หรือใช้ค่าเริ่มต้นถ้ายังไม่มี
+ */
+export async function fetchDormitories(): Promise<Dormitory[]> {
+  try {
+    const snap = await getDocs(collection(db, DORMITORIES_COLLECTION));
+    if (snap.empty) {
+      // Initialize with default 6 dormitories
+      await batchSaveDormitories(DEFAULT_DORMITORIES);
+      return DEFAULT_DORMITORIES;
+    }
+    const loaded = snap.docs.map(d => ({
+      ...d.data(),
+      id: d.id
+    })) as Dormitory[];
+    return loaded.sort((a, b) => a.dormNumber - b.dormNumber);
+  } catch (error) {
+    console.warn('Error fetching dormitories from Firestore, using cache/defaults:', error);
+    try {
+      const cached = localStorage.getItem('conduct_cached_dormitories');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return DEFAULT_DORMITORIES;
+  }
+}
+
+/**
+ * บันทึกหรือแก้ไขข้อมูลหอพัก
+ */
+export async function saveDormitory(dorm: Dormitory): Promise<void> {
+  const docRef = doc(db, DORMITORIES_COLLECTION, dorm.id);
+  const cleaned = cleanForFirestore({
+    ...dorm,
+    updatedAt: new Date().toISOString()
+  });
+  await setDoc(docRef, cleaned, { merge: true });
+}
+
+/**
+ * บันทึกหอพักหลายรายการพร้อมกัน (Batch Save)
+ */
+export async function batchSaveDormitories(dorms: Dormitory[]): Promise<number> {
+  const batch = writeBatch(db);
+  const now = new Date().toISOString();
+  for (const dorm of dorms) {
+    const docRef = doc(db, DORMITORIES_COLLECTION, dorm.id);
+    const cleaned = cleanForFirestore({
+      ...dorm,
+      updatedAt: now
+    });
+    batch.set(docRef, cleaned, { merge: true });
+  }
+  await batch.commit();
+  try {
+    localStorage.setItem('conduct_cached_dormitories', JSON.stringify(dorms));
+  } catch {}
+  return dorms.length;
+}
+
+/**
+ * ลบหอพัก
+ */
+export async function deleteDormitory(dormId: string): Promise<void> {
+  const docRef = doc(db, DORMITORIES_COLLECTION, dormId);
+  await deleteDoc(docRef);
+}
+
+/**
+ * คืนค่าหอพัก 1 - 6 เป็นค่าเริ่มต้นของโรงเรียน
+ */
+export async function resetDefaultDormitories(): Promise<Dormitory[]> {
+  await batchSaveDormitories(DEFAULT_DORMITORIES);
+  return DEFAULT_DORMITORIES;
+}
+
+/**
+ * ผูกนักเรียนกับหอพัก 1 - 6 ลงในฐานข้อมูล Firestore
+ */
+export async function syncStudentsToDormitoriesInDb(
+  students: Student[],
+  dormitories: Dormitory[],
+  currentAcademicYear: number
+): Promise<{ updatedCount: number; unassignedCount: number }> {
+  const result = syncAllStudentsWithDormitories(students, dormitories, currentAcademicYear);
+  const batchSize = 400;
+  for (let i = 0; i < result.updatedStudents.length; i += batchSize) {
+    const chunk = result.updatedStudents.slice(i, i + batchSize);
+    const batch = writeBatch(db);
+    for (const student of chunk) {
+      const docRef = doc(db, STUDENTS_COLLECTION, student.id);
+      batch.update(docRef, {
+        gender: student.gender || 'M',
+        dormitoryId: student.dormitoryId || deleteField(),
+        dormitoryName: student.dormitoryName || deleteField(),
+        updatedAt: new Date().toISOString()
+      });
+    }
+    await batch.commit();
+  }
+  return {
+    updatedCount: result.assignedCount,
+    unassignedCount: result.unassignedCount
+  };
+}
+
+/**
+ * เคลียร์หอพัก - ปลดนักเรียนออกจากหอพักทั้งหมดในฐานข้อมูล Firestore
+ */
+export async function clearAllStudentDormitoriesInDb(
+  students: Student[]
+): Promise<{ clearedCount: number }> {
+  // กรองเฉพาะนักเรียนที่มีการระบุหอพัก หรือหากไม่มีให้ทำกับทุกคน
+  const targetStudents = students.filter(s => s.dormitoryId || s.dormitoryName);
+  const studentsToProcess = targetStudents.length > 0 ? targetStudents : students;
+
+  const batchSize = 400;
+  let clearedCount = 0;
+
+  for (let i = 0; i < studentsToProcess.length; i += batchSize) {
+    const chunk = studentsToProcess.slice(i, i + batchSize);
+    const batch = writeBatch(db);
+    for (const student of chunk) {
+      const docRef = doc(db, STUDENTS_COLLECTION, student.id);
+      batch.update(docRef, {
+        dormitoryId: deleteField(),
+        dormitoryName: deleteField(),
+        updatedAt: new Date().toISOString()
+      });
+      clearedCount++;
+    }
+    await batch.commit();
+  }
+
+  recordRealOperation(
+    'WRITE',
+    clearedCount,
+    STUDENTS_COLLECTION,
+    'CLEAR_ALL_STUDENT_DORMITORIES',
+    `เคลียร์นักเรียนออกจากหอพักทั้งหมด (${clearedCount} คน)`
+  );
+
+  return { clearedCount };
+}
+
+/**
+ * กำหนดหอพักให้นักเรียนรายบุคคลในฐานข้อมูล Firestore
+ */
+export async function assignStudentDormitoryInDb(
+  studentId: string,
+  dormitoryId?: string,
+  dormitoryName?: string
+): Promise<void> {
+  const docRef = doc(db, STUDENTS_COLLECTION, studentId);
+  const updateData: any = {
+    updatedAt: new Date().toISOString()
+  };
+
+  if (dormitoryId && dormitoryName) {
+    updateData.dormitoryId = dormitoryId;
+    updateData.dormitoryName = dormitoryName;
+  } else {
+    updateData.dormitoryId = deleteField();
+    updateData.dormitoryName = deleteField();
+  }
+
+  await updateDoc(docRef, updateData);
+
+  recordRealOperation(
+    'WRITE',
+    1,
+    STUDENTS_COLLECTION,
+    'ASSIGN_STUDENT_DORMITORY',
+    `กำหนดหอพักนักเรียน ${studentId} -> ${dormitoryName || 'ไม่มีหอพัก'}`
+  );
+}
+
+/**
+ * กำหนดหอพักให้นักเรียนหลายคนพร้อมกันในฐานข้อมูล Firestore
+ */
+export async function batchAssignStudentsDormitoryInDb(
+  studentIds: string[],
+  dormitoryId?: string,
+  dormitoryName?: string
+): Promise<number> {
+  const batchSize = 400;
+  let updatedCount = 0;
+
+  for (let i = 0; i < studentIds.length; i += batchSize) {
+    const chunk = studentIds.slice(i, i + batchSize);
+    const batch = writeBatch(db);
+    for (const id of chunk) {
+      const docRef = doc(db, STUDENTS_COLLECTION, id);
+      if (dormitoryId && dormitoryName) {
+        batch.update(docRef, {
+          dormitoryId,
+          dormitoryName,
+          updatedAt: new Date().toISOString()
+        });
+      } else {
+        batch.update(docRef, {
+          dormitoryId: deleteField(),
+          dormitoryName: deleteField(),
+          updatedAt: new Date().toISOString()
+        });
+      }
+      updatedCount++;
+    }
+    await batch.commit();
+  }
+
+  recordRealOperation(
+    'WRITE',
+    updatedCount,
+    STUDENTS_COLLECTION,
+    'BATCH_ASSIGN_STUDENT_DORMITORY',
+    `กำหนดหอพักกลุ่มนักเรียน ${updatedCount} คน -> ${dormitoryName || 'ไม่มีหอพัก'}`
+  );
+
+  return updatedCount;
 }
 
 /**

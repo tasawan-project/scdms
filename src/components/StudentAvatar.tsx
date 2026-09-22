@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Student } from '../types';
 import { compressStudentImageFileDetailed, CompressionResult, formatBytes } from '../utils/imageUtils';
 import { calculateStudentGrade } from '../utils/conductLogic';
@@ -7,51 +7,66 @@ import {
   Camera,
   X,
   Sparkles,
-  Save,
   CheckCircle2,
-  Image as ImageIcon,
   Trash2,
   Upload,
-  RefreshCw,
   ZoomIn,
   ZoomOut,
-  RotateCcw,
-  Maximize2
+  RotateCcw
 } from 'lucide-react';
 
 interface StudentAvatarProps {
-  student: Student;
+  student?: Partial<Student> | null;
+  photoUrl?: string | null;
+  gender?: string | null;
+  name?: string | null;
   currentAcademicYear?: number;
   driveBaseUrl?: string; // Optional legacy prop
-  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'full';
   fitMode?: 'cover' | 'contain';
   showDrivePathTooltip?: boolean;
   canEditPhoto?: boolean;
+  className?: string;
   onUpdatePhoto?: (studentId: string, photoUrl: string) => Promise<void> | void;
 }
 
 export const StudentAvatar: React.FC<StudentAvatarProps> = ({
   student,
+  photoUrl: directPhotoUrl,
+  gender,
+  name,
   currentAcademicYear = 2569,
   size = 'md',
   fitMode = 'cover',
   canEditPhoto = false,
+  className = '',
   onUpdatePhoto
 }) => {
   const [imageError, setImageError] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [inputUrl, setInputUrl] = useState(student.photoUrl || '');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [lastCompressedInfo, setLastCompressedInfo] = useState<CompressionResult | null>(null);
   const [previewFitMode, setPreviewFitMode] = useState<'cover' | 'contain'>(fitMode);
   const [zoomLevel, setZoomLevel] = useState<number>(1);
 
-  const photoUrl = student.photoUrl?.trim() || null;
-  const { grade } = calculateStudentGrade(student.entryYear, student.entryLevel, currentAcademicYear);
+  // Safe photoUrl resolution
+  const photoUrl = (directPhotoUrl || student?.photoUrl || '')?.trim() || null;
+  const [inputUrl, setInputUrl] = useState<string>(photoUrl || '');
 
-  const sizeClasses = {
+  // Synchronize when student or directPhotoUrl prop changes
+  useEffect(() => {
+    setInputUrl(photoUrl || '');
+    setImageError(false);
+  }, [photoUrl]);
+
+  // Safe grade calculation
+  const gradeInfo = student?.entryYear && student?.entryLevel
+    ? calculateStudentGrade(student.entryYear, student.entryLevel, currentAcademicYear)
+    : { grade: '' };
+
+  const sizeClasses: Record<string, string> = {
+    xs: 'w-6 h-6 text-[10px]',
     sm: 'w-8 h-8 text-xs',
     md: 'w-11 h-11 text-sm',
     lg: 'w-16 h-16 text-base',
@@ -60,13 +75,27 @@ export const StudentAvatar: React.FC<StudentAvatarProps> = ({
   };
 
   const getInitials = () => {
-    const f = student.firstName?.charAt(0) || '';
-    const l = student.lastName?.charAt(0) || '';
+    if (name) {
+      return name.trim().slice(0, 2);
+    }
+    const f = student?.firstName?.charAt(0) || '';
+    const l = student?.lastName?.charAt(0) || '';
     return `${f}${l}` || 'นร';
   };
 
-  // Dynamic avatar background gradient based on student ID hash
+  const studentFullName = name || (
+    student
+      ? `${student.title || ''}${student.firstName || ''} ${student.lastName || ''}`.trim()
+      : 'นักเรียน'
+  );
+
+  const effectiveGender = gender || student?.gender;
+
+  // Dynamic avatar background gradient
   const getAvatarBg = () => {
+    if (effectiveGender === 'F') return 'from-rose-500 to-pink-600';
+    if (effectiveGender === 'M') return 'from-blue-500 to-indigo-600';
+
     const colors = [
       'from-blue-500 to-indigo-600',
       'from-emerald-500 to-teal-600',
@@ -75,7 +104,7 @@ export const StudentAvatar: React.FC<StudentAvatarProps> = ({
       'from-cyan-500 to-blue-600',
       'from-rose-500 to-pink-600'
     ];
-    const hash = (student.id || '0').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const hash = (student?.id || studentFullName || '0').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     return colors[hash % colors.length];
   };
 
@@ -88,7 +117,7 @@ export const StudentAvatar: React.FC<StudentAvatarProps> = ({
       const res = await compressStudentImageFileDetailed(file, 360, 480, 0.85);
       setLastCompressedInfo(res);
       setInputUrl(res.dataUrl);
-      if (onUpdatePhoto) {
+      if (onUpdatePhoto && student?.id) {
         await onUpdatePhoto(student.id, res.dataUrl);
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
@@ -102,7 +131,7 @@ export const StudentAvatar: React.FC<StudentAvatarProps> = ({
   };
 
   const handleRemovePhoto = async () => {
-    if (!onUpdatePhoto) return;
+    if (!onUpdatePhoto || !student?.id) return;
     if (!confirm('คุณต้องการลบรูปภาพนักเรียนคนนี้ออกจากระบบใช่หรือไม่?')) return;
 
     setIsSaving(true);
@@ -122,16 +151,16 @@ export const StudentAvatar: React.FC<StudentAvatarProps> = ({
   return (
     <>
       <div
-        className="relative group inline-block flex-shrink-0 cursor-pointer"
+        className={`relative group inline-block flex-shrink-0 cursor-pointer ${className}`}
         onClick={() => setShowModal(true)}
       >
         <div
-          className={`${sizeClasses[size]} rounded-2xl overflow-hidden shadow-xs border-2 border-white ring-1 ring-slate-200/80 flex items-center justify-center transition-transform hover:scale-105 bg-slate-100`}
+          className={`${sizeClasses[size] || sizeClasses.md} rounded-2xl overflow-hidden shadow-xs border-2 border-white ring-1 ring-slate-200/80 flex items-center justify-center transition-transform hover:scale-105 bg-slate-100`}
         >
           {photoUrl && !imageError ? (
             <img
               src={photoUrl}
-              alt={`${student.title} ${student.firstName} ${student.lastName}`}
+              alt={studentFullName}
               className={`w-full h-full ${fitMode === 'contain' ? 'object-contain' : 'object-cover object-top'}`}
               onError={() => setImageError(true)}
               referrerPolicy="no-referrer"
@@ -184,12 +213,12 @@ export const StudentAvatar: React.FC<StudentAvatarProps> = ({
                 ) : (
                   <div className={`w-full h-full bg-gradient-to-br ${getAvatarBg()} text-white flex flex-col items-center justify-center p-4`}>
                     <User className="w-16 h-16 mb-2 opacity-80" />
-                    <span className="font-semibold text-base">{student.firstName} {student.lastName}</span>
+                    <span className="font-semibold text-base">{studentFullName}</span>
                     <span className="text-xs text-white/70 mt-1">ยังไม่มีรูปถ่ายประจำตัว</span>
                   </div>
                 )}
 
-                {canEditPhoto && onUpdatePhoto && (
+                {canEditPhoto && onUpdatePhoto && student?.id && (
                   <label
                     htmlFor={`upload-photo-${student.id}`}
                     className="absolute inset-0 bg-slate-950/70 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-xs font-bold gap-1 backdrop-blur-xs"
@@ -268,7 +297,7 @@ export const StudentAvatar: React.FC<StudentAvatarProps> = ({
                 </div>
               )}
 
-              {canEditPhoto && onUpdatePhoto && (
+              {canEditPhoto && onUpdatePhoto && student?.id && (
                 <input
                   type="file"
                   id={`upload-photo-${student.id}`}
@@ -279,15 +308,19 @@ export const StudentAvatar: React.FC<StudentAvatarProps> = ({
               )}
 
               <h3 className="font-bold text-lg text-slate-900">
-                {student.title}{student.firstName} {student.lastName}
+                {studentFullName}
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                รหัสประจำตัว: <span className="font-mono font-bold text-indigo-600">{student.id}</span> • ชั้น {grade}/{student.room} {student.number ? `(เลขที่ ${student.number})` : ''}
-              </p>
+              {student?.id && (
+                <p className="text-xs text-slate-500 mt-0.5">
+                  รหัสประจำตัว: <span className="font-mono font-bold text-indigo-600">{student.id}</span>
+                  {gradeInfo?.grade ? ` • ชั้น ${gradeInfo.grade}/${student.room || '-'}` : ''}
+                  {student.number ? ` (เลขที่ ${student.number})` : ''}
+                </p>
+              )}
             </div>
 
             {/* Photo Edit Controls */}
-            {canEditPhoto && onUpdatePhoto && (
+            {canEditPhoto && onUpdatePhoto && student?.id && (
               <div className="mt-4 pt-4 border-t border-slate-100 space-y-3">
                 <div className="flex flex-wrap items-center justify-center gap-2">
                   <label

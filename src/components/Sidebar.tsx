@@ -31,7 +31,8 @@ import {
   PlusCircle,
   MinusCircle,
   ClipboardCheck,
-  Activity
+  Activity,
+  Building2
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -290,6 +291,62 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <UserCheck className="w-4 h-4 shrink-0" />
               <span>ครูที่ปรึกษา</span>
             </div>
+          </button>
+        )}
+
+        {/* Item 3.5: จัดการหอพัก */}
+        {canAccess('DORMITORIES') && (
+          <button
+            type="button"
+            id="sidebar-nav-dormitories"
+            onClick={() => handleNav('DORMITORIES')}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-bold transition-all cursor-pointer text-left ${
+              currentView === 'DORMITORIES'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <Building2 className="w-4 h-4 shrink-0" />
+              <span>จัดการหอพัก</span>
+            </div>
+            <span
+              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                currentView === 'DORMITORIES'
+                  ? 'bg-indigo-700 text-white'
+                  : 'bg-indigo-50 text-indigo-700 border border-indigo-200/60'
+              }`}
+            >
+              หอพัก
+            </span>
+          </button>
+        )}
+
+        {/* Item 3.6: รายชื่อนักเรียนในหอพัก */}
+        {canAccess('DORMITORY_STUDENTS') && (
+          <button
+            type="button"
+            id="sidebar-nav-dormitory-students"
+            onClick={() => handleNav('DORMITORY_STUDENTS')}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-bold transition-all cursor-pointer text-left ${
+              currentView === 'DORMITORY_STUDENTS'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <Users className="w-4 h-4 shrink-0" />
+              <span>รายชื่อในหอพัก</span>
+            </div>
+            <span
+              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                currentView === 'DORMITORY_STUDENTS'
+                  ? 'bg-indigo-700 text-white'
+                  : 'bg-purple-50 text-purple-700 border border-purple-200/60'
+              }`}
+            >
+              รายชื่อ
+            </span>
           </button>
         )}
 

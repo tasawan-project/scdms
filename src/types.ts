@@ -44,6 +44,8 @@ export type AppView =
   | 'CHECK_SCORE'
   | 'LOOKUP'
   | 'ADVISORS'
+  | 'DORMITORIES'
+  | 'DORMITORY_STUDENTS'
   | 'HONOUR'
   | 'REPORTS'
   | 'REPORT_INDIVIDUAL'
@@ -110,6 +112,62 @@ export interface StandardConductBehavior {
   updatedAt?: string;
 }
 
+export type StudentGender = 'M' | 'F'; // 'M' = ชาย, 'F' = หญิง
+
+/**
+ * ประเภทหอพัก:
+ * 1. 'MIXED': หอพักรวม (M)(F) รองรับทั้งนักเรียนชายและหญิง
+ * 2. 'M': หอพักชาย (M)
+ * 3. 'F': หอพักหญิง (F)
+ */
+export type DormitoryType = 'MIXED' | 'M' | 'F';
+
+/**
+ * ข้อมูลครูผู้ดูแลหอพัก (หอพักมีได้มากกว่า 1 คน)
+ */
+export interface DormitorySupervisor {
+  id: string;
+  name: string; // ชื่อ-นามสกุล ครูหอพัก (ต้องระบุ ห้ามเว้นว่าง)
+  phone?: string; // เบอร์โทรศัพท์
+  role?: string; // ตำแหน่ง เช่น 'หัวหน้าครูหอพัก', 'ครูหอพักประจำ', 'ครูเวรหอพัก'
+}
+
+/**
+ * กฎการกำหนดระดับชั้น ห้อง และเพศสำหรับหอพัก
+ * รองรับการกำหนดเพศแยกตามระดับชั้น (เช่น ม.1 ทั้งชายและหญิง, ม.2 เฉพาะหญิง, ม.3 เฉพาะหญิง)
+ */
+export interface DormitoryClassroomRule {
+  grade: GradeLevel; // 'ม.1' | 'ม.2' | 'ม.3' | 'ม.4' | 'ม.5' | 'ม.6'
+  rooms: number[];   // e.g. [1, 2, 3, 4] หรือ [] แปลว่าทุกห้องในระดับชั้นนั้น
+  gender?: DormitoryType; // 'MIXED' (ทั้งชายและหญิง) | 'M' (เฉพาะชาย) | 'F' (เฉพาะหญิง)
+}
+
+export type DormitoryGradeRule = DormitoryClassroomRule;
+
+/**
+ * ข้อมูลหอพักนักเรียน
+ * แยก 3 ประเภท: หอพักรวม (M)(F), หอพักชาย (M), หอพักหญิง (F)
+ * ระบุระดับชั้นและห้องที่สังกัด พร้อมครูหอพักประจำมากกว่า 1 คน
+ * รองรับการกำหนดเพศที่รับแยกในแต่ละระดับชั้น (Grade-specific Gender Rules)
+ */
+export interface Dormitory {
+  id: string; // เช่น 'dorm-1', 'dorm-7'
+  dormNumber: number; // 1, 2, 3, 4...
+  name: string; // เช่น 'หอพัก 1 (ชาย)', 'หอพัก 7 (หอพักรวม)'
+  gender: DormitoryType; // 'MIXED' | 'M' | 'F'
+  assignedGrades: GradeLevel[]; // ระดับชั้นที่อยู่หอนี้ เช่น ['ม.1', 'ม.2']
+  assignedRooms: number[]; // ห้องที่อยู่หอนี้ เช่น [1, 2, 3, 4] (หรือ [] หมายถึงทุกห้อง)
+  assignedClassrooms?: DormitoryClassroomRule[]; // กฎระดับชั้น ห้อง และเพศที่รับอย่างละเอียด
+  gradeGenderRules?: DormitoryClassroomRule[]; // กฎกำหนดเพศที่รับแยกตามระดับชั้น (เช่น ม.1 ชายและหญิง, ม.2 เฉพาะหญิง)
+  supervisors?: DormitorySupervisor[]; // รายชื่อครูหอพักประจำ (มีได้มากกว่า 1 คน ห้ามเว้นว่าง)
+  supervisorName?: string; // ครูผู้ดูแลหอพักหลัก (backward compatibility)
+  supervisorPhone?: string; // เบอร์โทรศัพท์ครูผู้ดูแลหอพักหลัก
+  capacity?: number; // ความจุเตียง/นักเรียน (คน) เช่น 80
+  notes?: string; // หมายเหตุ/รายละเอียด
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Student {
   id: string; // รหัสนักเรียน เช่น "05505"
   nationalId?: string; // เลขประจำตัวประชาชน (ถ้ามี)
@@ -121,6 +179,11 @@ export interface Student {
   levelCode?: LevelCode; // รหัสระดับ: 'M' (ม.ต้น ม.1-ม.3) หรือ 'F' (ม.ปลาย ม.4-ม.6)
   room: number; // ห้อง เช่น 1, 2, 3
   number?: number; // เลขที่
+
+  // ข้อมูลเพศและหอพัก
+  gender?: StudentGender; // 'M' = ชาย, 'F' = หญิง (คำนวณจากคำนำหน้า หรือกำหนดเอง)
+  dormitoryId?: string; // 'dorm-1' - 'dorm-6'
+  dormitoryName?: string; // 'หอพัก 1' - 'หอพัก 6'
   
   // สถานะคะแนน
   currentScore: number; // คะแนนปัจจุบัน (เริ่มต้น 100, สูงสุด 100)

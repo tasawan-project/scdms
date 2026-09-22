@@ -9,7 +9,8 @@ import {
   ScoreFilterType,
   EducationalLevel,
   GradeLevel,
-  StandardConductBehavior
+  StandardConductBehavior,
+  Dormitory
 } from '../types';
 import { INITIAL_STANDARD_BEHAVIORS } from '../data/standardBehaviorsData';
 import {
@@ -61,8 +62,10 @@ import {
   Edit,
   Camera,
   Trash2,
-  Maximize2
+  Maximize2,
+  Building2
 } from 'lucide-react';
+import { matchStudentToDormitory, inferStudentGender } from '../utils/dormitoryLogic';
 
 interface StudentLookupProps {
   students: Student[];
@@ -84,6 +87,7 @@ interface StudentLookupProps {
   onDeleteConductLog?: (log: ConductLog, updatedStudent: Student) => Promise<void>;
   onOpenPhotoManager?: () => void;
   standardBehaviors?: StandardConductBehavior[];
+  dormitories?: Dormitory[];
 }
 
 export const StudentLookup: React.FC<StudentLookupProps> = ({
@@ -95,6 +99,7 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
   studentGrant,
   systemSettings,
   advisors = [],
+  dormitories = [],
   onOpenConductAction,
   onOpenGrantModal,
   initialStudentId = '',
@@ -253,6 +258,19 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
     if (!selectedStudent) return null;
     return (students || []).find(s => s && s.id === selectedStudent.id) || selectedStudent;
   }, [selectedStudent, students]);
+
+  // Derive student's dormitory and gender
+  const studentDormInfo = useMemo(() => {
+    if (!currentStudent) return null;
+    const matched = matchStudentToDormitory(currentStudent, dormitories, currentAcademicYear);
+    const gender = currentStudent.gender || matched.gender;
+    const dormName = currentStudent.dormitoryName || matched.dormitory?.name || 'ยังไม่ได้ระบุหอพัก';
+    return {
+      gender,
+      dormName,
+      dorm: matched.dormitory
+    };
+  }, [currentStudent, dormitories, currentAcademicYear]);
 
   const [photoFitMode, setPhotoFitMode] = useState<'cover' | 'contain'>('cover');
   const [editingLog, setEditingLog] = useState<ConductLog | null>(null);
@@ -1057,6 +1075,23 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                     <span className="text-slate-400">ปีที่เข้าศึกษา:</span>
                     <span className="font-medium text-slate-800">
                       {currentStudent.entryYear} ({currentStudent.entryLevel})
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-slate-600">
+                    <span className="text-slate-400">เพศ:</span>
+                    <span className={`font-bold text-[11px] px-2 py-0.5 rounded-md ${
+                      studentDormInfo?.gender === 'M'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200/80'
+                        : 'bg-rose-50 text-rose-700 border border-rose-200/80'
+                    }`}>
+                      {studentDormInfo?.gender === 'M' ? 'ชาย (M)' : 'หญิง (F)'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-slate-600">
+                    <span className="text-slate-400">หอพัก:</span>
+                    <span className="font-bold text-[11px] px-2.5 py-0.5 rounded-lg bg-indigo-50 text-indigo-800 border border-indigo-200/80 flex items-center gap-1.5">
+                      <Building2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                      <span>{studentDormInfo?.dormName}</span>
                     </span>
                   </div>
                   <div className="flex justify-between items-start text-slate-600">

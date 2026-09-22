@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Student, SystemSettings, HomeroomAdvisor } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Student, SystemSettings, HomeroomAdvisor, Dormitory, StudentGender } from '../types';
 import { compressStudentImageFileDetailed, CompressionResult, formatBytes } from '../utils/imageUtils';
 import { calculateStudentGrade, resolveStudentLevelAndYear } from '../utils/conductLogic';
+import { DEFAULT_DORMITORIES, inferStudentGender, matchStudentToDormitory } from '../utils/dormitoryLogic';
 import {
   X,
   Edit,
@@ -12,13 +13,16 @@ import {
   AlertCircle,
   Save,
   User,
-  AlertTriangle
+  AlertTriangle,
+  Building2,
+  CheckCircle2
 } from 'lucide-react';
 
 interface EditStudentModalProps {
   student: Student;
   currentAcademicYear: number;
   advisors?: HomeroomAdvisor[];
+  dormitories?: Dormitory[];
   systemSettings?: SystemSettings;
   onClose: () => void;
   onSave: (updatedStudent: Student) => Promise<void>;
@@ -29,14 +33,18 @@ export const EditStudentModal: React.FC<EditStudentModalProps> = ({
   student,
   currentAcademicYear,
   advisors = [],
+  dormitories = [],
   systemSettings,
   onClose,
   onSave,
   onDelete
 }) => {
+  if (!student) return null;
+
   const currentGradeInfo = calculateStudentGrade(student.entryYear, student.entryLevel, currentAcademicYear);
 
   const [title, setTitle] = useState(student.title || 'เด็กชาย');
+  const [gender, setGender] = useState<StudentGender>(student.gender || inferStudentGender(student));
   const [firstName, setFirstName] = useState(student.firstName || '');
   const [lastName, setLastName] = useState(student.lastName || '');
   const [number, setNumber] = useState<string>(student.number !== undefined ? String(student.number) : '');
@@ -48,6 +56,32 @@ export const EditStudentModal: React.FC<EditStudentModalProps> = ({
   const [guardianName, setGuardianName] = useState(student.guardianName || '');
   const [advisorName, setAdvisorName] = useState(student.advisorName || '');
   const [status, setStatus] = useState<'ACTIVE' | 'GRADUATED' | 'TRANSFERRED'>(student.status || 'ACTIVE');
+
+  // Handle Title change
+  const handleTitleChange = (newTitle: string) => {
+    setTitle(newTitle);
+    if (!student.gender) {
+      setGender(inferStudentGender({ title: newTitle }));
+    }
+  };
+
+  // Matched Dormitory Calculation
+  const matchedDormInfo = useMemo(() => {
+    const dormList = dormitories && dormitories.length > 0 ? dormitories : DEFAULT_DORMITORIES;
+    const resolved = resolveStudentLevelAndYear(gradeLevel, undefined, currentAcademicYear);
+    const tempStudent: Student = {
+      ...student,
+      title,
+      firstName: firstName || 'นักเรียน',
+      lastName: lastName || '',
+      gender,
+      entryYear: resolved.entryYear,
+      entryLevel: resolved.entryLevel,
+      levelCode: resolved.levelCode,
+      room: Number(room) || 1
+    };
+    return matchStudentToDormitory(tempStudent, dormList, currentAcademicYear);
+  }, [dormitories, student, title, firstName, lastName, gender, gradeLevel, room, currentAcademicYear]);
 
   // Photo state
   const [photoDataUrl, setPhotoDataUrl] = useState<string>(student.photoUrl || '');
@@ -98,6 +132,9 @@ export const EditStudentModal: React.FC<EditStudentModalProps> = ({
       title,
       firstName: firstName.trim(),
       lastName: lastName.trim(),
+      gender,
+      dormitoryId: matchedDormInfo.dormitory ? matchedDormInfo.dormitory.id : undefined,
+      dormitoryName: matchedDormInfo.dormitory ? matchedDormInfo.dormitory.name : undefined,
       entryYear: resolved.entryYear,
       entryLevel: resolved.entryLevel,
       levelCode: resolved.levelCode,
@@ -259,7 +296,7 @@ export const EditStudentModal: React.FC<EditStudentModalProps> = ({
               <label className="block text-xs font-bold text-slate-700 mb-1">คำนำหน้า</label>
               <select
                 value={title}
-                onChange={e => setTitle(e.target.value)}
+                onChange={e => handleTitleChange(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-hidden cursor-pointer"
               >
                 <option value="เด็กชาย">เด็กชาย</option>
@@ -295,6 +332,62 @@ export const EditStudentModal: React.FC<EditStudentModalProps> = ({
                 onChange={e => setLastName(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-hidden"
               />
+            </div>
+          </div>
+
+          {/* GENDER & DORMITORY PREVIEW */}
+          <div className="p-3 bg-indigo-50/60 border border-indigo-100 rounded-2xl space-y-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Building2 className="w-4 h-4 text-indigo-600" />
+                  <span>การผูกหอพักนักเรียน (หอ 1 - 6)</span>
+                </label>
+                <p className="text-[11px] text-slate-500">
+                  ระบบผูกหอพักอัตโนมัติตามเพศ ระดับชั้น ({gradeLevel}) และห้อง ({room})
+                </p>
+              </div>
+
+              {/* Gender radio buttons */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setGender('M')}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    gender === 'M'
+                      ? 'bg-indigo-600 text-white shadow-2xs'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  ♂ ชาย (M)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGender('F')}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    gender === 'F'
+                      ? 'bg-rose-600 text-white shadow-2xs'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  ♀ หญิง (F)
+                </button>
+              </div>
+            </div>
+
+            {/* Inferred Dormitory Badge */}
+            <div className="flex items-center gap-2 pt-1 border-t border-indigo-100/80">
+              <span className="text-[11px] font-bold text-slate-600">หอพักที่ระบบผูกให้:</span>
+              {matchedDormInfo.dormitory ? (
+                <span className="text-xs font-black text-indigo-700 bg-white border border-indigo-200 px-2.5 py-0.5 rounded-lg shadow-2xs flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>{matchedDormInfo.dormitory.name}</span>
+                </span>
+              ) : (
+                <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">
+                  {matchedDormInfo.reason || 'ยังไม่มีหอพักที่ตรงเงื่อนไข'}
+                </span>
+              )}
             </div>
           </div>
 

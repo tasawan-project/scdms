@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { Student, EntryLevel, LevelCode, HomeroomAdvisor } from '../types';
+import React, { useState, useMemo } from 'react';
+import { Student, EntryLevel, LevelCode, HomeroomAdvisor, Dormitory, StudentGender } from '../types';
 import { compressStudentImageFileDetailed, CompressionResult, formatBytes } from '../utils/imageUtils';
 import { resolveStudentLevelAndYear } from '../utils/conductLogic';
+import { DEFAULT_DORMITORIES, inferStudentGender, matchStudentToDormitory } from '../utils/dormitoryLogic';
 import {
   X,
   UserPlus,
@@ -12,13 +13,15 @@ import {
   CheckCircle2,
   AlertCircle,
   Save,
-  User
+  User,
+  Building2
 } from 'lucide-react';
 
 interface AddStudentModalProps {
   currentAcademicYear: number;
   advisors?: HomeroomAdvisor[];
   existingStudents: Student[];
+  dormitories?: Dormitory[];
   onClose: () => void;
   onSave: (student: Student) => Promise<void>;
 }
@@ -27,11 +30,13 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({
   currentAcademicYear,
   advisors = [],
   existingStudents,
+  dormitories = [],
   onClose,
   onSave
 }) => {
   const [studentId, setStudentId] = useState('');
   const [title, setTitle] = useState('เด็กชาย');
+  const [gender, setGender] = useState<StudentGender>('M');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [number, setNumber] = useState<string>('');
@@ -41,6 +46,40 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({
   const [guardianPhone, setGuardianPhone] = useState('');
   const [guardianName, setGuardianName] = useState('');
   const [advisorName, setAdvisorName] = useState('');
+
+  // Handle Title change and automatically infer gender
+  const handleTitleChange = (newTitle: string) => {
+    setTitle(newTitle);
+    const inferred = inferStudentGender({ title: newTitle });
+    setGender(inferred);
+  };
+
+  // Matched Dormitory Calculation
+  const matchedDormInfo = useMemo(() => {
+    const dormList = dormitories && dormitories.length > 0 ? dormitories : DEFAULT_DORMITORIES;
+    const resolved = resolveStudentLevelAndYear(gradeLevel, undefined, currentAcademicYear);
+    const tempStudent: Student = {
+      id: studentId || 'preview',
+      title,
+      firstName: firstName || 'นักเรียน',
+      lastName: lastName || '',
+      gender,
+      entryYear: resolved.entryYear,
+      entryLevel: resolved.entryLevel,
+      levelCode: resolved.levelCode,
+      room: Number(room) || 1,
+      currentScore: 100,
+      bankedPoints: 0,
+      totalDeductionsCount: 0,
+      totalDeductedPoints: 0,
+      totalAddedPoints: 0,
+      hasNeverBeenDeducted: true,
+      status: 'ACTIVE',
+      createdAt: '',
+      updatedAt: ''
+    };
+    return matchStudentToDormitory(tempStudent, dormList, currentAcademicYear);
+  }, [dormitories, title, firstName, lastName, gender, gradeLevel, room, studentId, currentAcademicYear]);
 
   // Photo state
   const [photoDataUrl, setPhotoDataUrl] = useState<string>('');
@@ -107,6 +146,9 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({
       title,
       firstName: firstName.trim(),
       lastName: lastName.trim(),
+      gender,
+      dormitoryId: matchedDormInfo.dormitory ? matchedDormInfo.dormitory.id : undefined,
+      dormitoryName: matchedDormInfo.dormitory ? matchedDormInfo.dormitory.name : undefined,
       entryYear: resolved.entryYear,
       entryLevel: resolved.entryLevel,
       levelCode: resolved.levelCode,
@@ -271,7 +313,7 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({
               <label className="block text-xs font-bold text-slate-700 mb-1">คำนำหน้า</label>
               <select
                 value={title}
-                onChange={e => setTitle(e.target.value)}
+                onChange={e => handleTitleChange(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-hidden cursor-pointer"
               >
                 <option value="เด็กชาย">เด็กชาย</option>
@@ -293,6 +335,62 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({
                 placeholder="เช่น 1"
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:outline-hidden"
               />
+            </div>
+          </div>
+
+          {/* GENDER & DORMITORY PREVIEW */}
+          <div className="p-3 bg-indigo-50/60 border border-indigo-100 rounded-2xl space-y-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Building2 className="w-4 h-4 text-indigo-600" />
+                  <span>การผูกหอพักนักเรียน (หอ 1 - 6)</span>
+                </label>
+                <p className="text-[11px] text-slate-500">
+                  ระบบผูกหอพักอัตโนมัติตามเพศ ระดับชั้น ({gradeLevel}) และห้อง ({room})
+                </p>
+              </div>
+
+              {/* Gender radio buttons */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setGender('M')}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    gender === 'M'
+                      ? 'bg-indigo-600 text-white shadow-2xs'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  ♂ ชาย (M)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGender('F')}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    gender === 'F'
+                      ? 'bg-rose-600 text-white shadow-2xs'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  ♀ หญิง (F)
+                </button>
+              </div>
+            </div>
+
+            {/* Inferred Dormitory Badge */}
+            <div className="flex items-center gap-2 pt-1 border-t border-indigo-100/80">
+              <span className="text-[11px] font-bold text-slate-600">หอพักที่ระบบผูกให้:</span>
+              {matchedDormInfo.dormitory ? (
+                <span className="text-xs font-black text-indigo-700 bg-white border border-indigo-200 px-2.5 py-0.5 rounded-lg shadow-2xs flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>{matchedDormInfo.dormitory.name}</span>
+                </span>
+              ) : (
+                <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">
+                  {matchedDormInfo.reason || 'ยังไม่มีหอพักที่ตรงเงื่อนไข'}
+                </span>
+              )}
             </div>
           </div>
 

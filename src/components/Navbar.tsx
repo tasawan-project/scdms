@@ -32,7 +32,8 @@ import {
   PlusCircle,
   MinusCircle,
   ChevronDown,
-  ClipboardCheck
+  ClipboardCheck,
+  Building2
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -620,6 +621,26 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <div className="flex items-center gap-2.5">
                       <UserCheck className="w-4 h-4" />
                       <span>ครูที่ปรึกษาประจำชั้น</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 opacity-70" />
+                  </button>
+                )}
+
+                {canAccess('DORMITORIES') && (
+                  <button
+                    onClick={() => {
+                      onChangeView('DORMITORIES');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`w-full px-3.5 py-2.5 rounded-xl text-sm font-bold flex items-center justify-between transition-colors ${
+                      currentView === 'DORMITORIES'
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Building2 className="w-4 h-4" />
+                      <span>จัดการหอพักนักเรียน (หอ 1 - 6)</span>
                     </div>
                     <ChevronRight className="w-4 h-4 opacity-70" />
                   </button>

@@ -15,7 +15,8 @@ import {
   AppView,
   HomeroomAdvisor,
   GradeLevel,
-  StandardConductBehavior
+  StandardConductBehavior,
+  Dormitory
 } from './types';
 import {
   db,
@@ -57,6 +58,16 @@ import {
   resetDatabaseToAdminOnly,
   exportDatabaseBackup,
   importDatabaseBackup,
+  fetchDormitories,
+  saveDormitory,
+  batchSaveDormitories,
+  deleteDormitory,
+  resetDefaultDormitories,
+  syncStudentsToDormitoriesInDb,
+  clearAllStudentDormitoriesInDb,
+  assignStudentDormitoryInDb,
+  batchAssignStudentsDormitoryInDb,
+  DORMITORIES_COLLECTION,
   STUDENTS_COLLECTION,
   CONDUCT_LOGS_COLLECTION,
   USERS_COLLECTION,
@@ -97,6 +108,9 @@ import { recordRealOperation } from './utils/actualUsageTracker';
 import { ScoreCheckView } from './components/ScoreCheckView';
 import { AddStudentModal } from './components/AddStudentModal';
 import { EditStudentModal } from './components/EditStudentModal';
+import { DormitoryManagementView } from './components/DormitoryManagementView';
+import { DormitoryStudentsView } from './components/DormitoryStudentsView';
+import { DEFAULT_DORMITORIES } from './utils/dormitoryLogic';
 import { Loader2, ShieldAlert } from 'lucide-react';
 
 const getActiveReportTabFromView = (view: AppView): ConductReportTab => {
@@ -145,6 +159,20 @@ export default function App() {
   });
   const [accessGrants, setAccessGrants] = useState<StudentAccessGrant[]>([]);
   const [advisors, setAdvisors] = useState<HomeroomAdvisor[]>([]);
+  const [dormitories, setDormitories] = useState<Dormitory[]>(() => {
+    try {
+      const cached = localStorage.getItem('conduct_cached_dormitories');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+      return DEFAULT_DORMITORIES;
+    } catch {
+      return DEFAULT_DORMITORIES;
+    }
+  });
   const [standardBehaviors, setStandardBehaviors] = useState<StandardConductBehavior[]>([]);
   const [loading, setLoading] = useState<boolean>(() => {
     try {
@@ -193,6 +221,7 @@ export default function App() {
     }
   });
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
+  const [selectedDormIdForStudentsView, setSelectedDormIdForStudentsView] = useState<string | undefined>(undefined);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
 
   const getPermittedSettingsView = (): AppView => {
@@ -246,6 +275,7 @@ export default function App() {
     let unsubscribeGrants: () => void = () => {};
     let unsubscribeAdvisors: () => void = () => {};
     let unsubscribeBehaviors: () => void = () => {};
+    let unsubscribeDormitories: () => void = () => {};
 
     // Fast safety timeout: dismiss loading screen in max 600ms so user never waits
     const safetyTimer = setTimeout(() => {
@@ -387,14 +417,37 @@ export default function App() {
         }
       );
 
-      // 1.7 Parallel initial fetch for fast non-blocking hydration
+      // 1.7 Snapshot listener for Dormitories
+      unsubscribeDormitories = onSnapshot(
+        collection(db, DORMITORIES_COLLECTION),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const list: Dormitory[] = [];
+            snapshot.forEach((docSnap) => {
+              const d = docSnap.data() as Dormitory;
+              if (d && d.id) {
+                list.push(d);
+              }
+            });
+            list.sort((a, b) => a.dormNumber - b.dormNumber);
+            setDormitories(list);
+            try { localStorage.setItem('conduct_cached_dormitories', JSON.stringify(list)); } catch {}
+          }
+        },
+        (err) => {
+          console.warn('Firestore dormitories snapshot error:', err);
+        }
+      );
+
+      // 1.8 Parallel initial fetch for fast non-blocking hydration
       Promise.allSettled([
         fetchSystemSettings(),
         fetchAppUsers(),
         fetchStudentAccessGrants(),
         fetchHomeroomAdvisors(),
-        fetchStandardBehaviors()
-      ]).then(([settingsRes, usersRes, grantsRes, advisorsRes, behaviorsRes]) => {
+        fetchStandardBehaviors(),
+        fetchDormitories()
+      ]).then(([settingsRes, usersRes, grantsRes, advisorsRes, behaviorsRes, dormsRes]) => {
         if (settingsRes.status === 'fulfilled' && settingsRes.value) {
           setSystemSettings(settingsRes.value);
           try { localStorage.setItem('conduct_cached_settings', JSON.stringify(settingsRes.value)); } catch {}
@@ -421,6 +474,10 @@ export default function App() {
         if (behaviorsRes.status === 'fulfilled' && behaviorsRes.value) {
           setStandardBehaviors(behaviorsRes.value);
         }
+        if (dormsRes.status === 'fulfilled' && dormsRes.value && dormsRes.value.length > 0) {
+          setDormitories(dormsRes.value);
+          try { localStorage.setItem('conduct_cached_dormitories', JSON.stringify(dormsRes.value)); } catch {}
+        }
         setLoading(false);
       });
     } catch (e) {
@@ -439,6 +496,7 @@ export default function App() {
       unsubscribeGrants();
       unsubscribeAdvisors();
       unsubscribeBehaviors();
+      unsubscribeDormitories();
     };
   }, []);
 
@@ -828,6 +886,99 @@ export default function App() {
     return await syncClassroomAdvisorToStudents(gradeLevel, room, systemSettings.currentAcademicYear, advisorName);
   };
 
+  // Dormitory Management Handlers
+  const handleSaveDormitory = async (dormitory: Dormitory) => {
+    await saveDormitory(dormitory);
+    setDormitories(prev => {
+      const idx = prev.findIndex(d => d.id === dormitory.id);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = dormitory;
+        return copy;
+      }
+      return [...prev, dormitory];
+    });
+  };
+
+  const handleDeleteDormitory = async (dormId: string) => {
+    await deleteDormitory(dormId);
+    setDormitories(prev => prev.filter(d => d.id !== dormId));
+  };
+
+  const handleBatchSaveDormitories = async (dorms: Dormitory[]) => {
+    const count = await batchSaveDormitories(dorms);
+    setDormitories(dorms);
+    return count;
+  };
+
+  const handleSyncStudentsWithDormitories = async (updatedStudents: Student[]) => {
+    try {
+      await syncStudentsToDormitoriesInDb(updatedStudents, dormitories, systemSettings.currentAcademicYear);
+    } catch (e) {
+      console.warn('syncStudentsToDormitoriesInDb warning:', e);
+    }
+    setStudents(updatedStudents);
+    try {
+      localStorage.setItem('conduct_cached_students', JSON.stringify(updatedStudents));
+    } catch {}
+  };
+
+  const handleClearAllStudentDormitories = async (): Promise<number> => {
+    const { clearedCount } = await clearAllStudentDormitoriesInDb(students);
+    const updated = students.map(s => ({
+      ...s,
+      dormitoryId: undefined,
+      dormitoryName: undefined
+    }));
+    setStudents(updated);
+    try {
+      localStorage.setItem('conduct_cached_students', JSON.stringify(updated));
+    } catch {}
+    return clearedCount;
+  };
+
+  const handleAssignStudentDormitory = async (studentId: string, dormitoryId?: string, dormitoryName?: string) => {
+    await assignStudentDormitoryInDb(studentId, dormitoryId, dormitoryName);
+    const updated = students.map(s => {
+      if (s.id === studentId) {
+        return {
+          ...s,
+          dormitoryId,
+          dormitoryName
+        };
+      }
+      return s;
+    });
+    setStudents(updated);
+    try {
+      localStorage.setItem('conduct_cached_students', JSON.stringify(updated));
+    } catch {}
+  };
+
+  const handleBatchAssignStudentsDormitory = async (studentIds: string[], dormitoryId?: string, dormitoryName?: string) => {
+    const count = await batchAssignStudentsDormitoryInDb(studentIds, dormitoryId, dormitoryName);
+    const updated = students.map(s => {
+      if (studentIds.includes(s.id)) {
+        return {
+          ...s,
+          dormitoryId,
+          dormitoryName
+        };
+      }
+      return s;
+    });
+    setStudents(updated);
+    try {
+      localStorage.setItem('conduct_cached_students', JSON.stringify(updated));
+    } catch {}
+    return count;
+  };
+
+  const handleResetDefaultDormitories = async () => {
+    await resetDefaultDormitories();
+    setDormitories(DEFAULT_DORMITORIES);
+  };
+
   // Standard Conduct Behavior Handlers
   const handleSaveStandardBehavior = async (behavior: StandardConductBehavior) => {
     await saveStandardBehavior(behavior);
@@ -1192,6 +1343,7 @@ export default function App() {
               studentGrant={studentGrant}
               systemSettings={systemSettings}
               advisors={advisors}
+              dormitories={dormitories}
               initialStudentId={studentGrant ? studentGrant.studentId : selectedStudentId}
               onOpenConductAction={(student, defaultType) => {
                 if (!currentUser) {
@@ -1318,6 +1470,41 @@ export default function App() {
               onSyncAllAdvisors={handleSyncAllAdvisors}
               onSyncClassroom={handleSyncClassroomAdvisor}
               onSelectStudent={handleSelectStudent}
+            />
+          ) : currentView === 'DORMITORIES' && currentUser ? (
+            <DormitoryManagementView
+              dormitories={dormitories}
+              students={students}
+              currentAcademicYear={systemSettings.currentAcademicYear}
+              currentUser={currentUser}
+              systemSettings={systemSettings}
+              onSaveDormitory={handleSaveDormitory}
+              onBatchSaveDormitories={handleBatchSaveDormitories}
+              onDeleteDormitory={handleDeleteDormitory}
+              onSyncStudentsWithDormitories={handleSyncStudentsWithDormitories}
+              onClearAllStudentDormitories={handleClearAllStudentDormitories}
+              onAssignStudentDormitory={handleAssignStudentDormitory}
+              onBatchAssignStudentsDormitory={handleBatchAssignStudentsDormitory}
+              onResetDefaultDormitories={handleResetDefaultDormitories}
+              onNavigateToStudentsView={(dormId) => {
+                setSelectedDormIdForStudentsView(dormId);
+                setCurrentView('DORMITORY_STUDENTS');
+              }}
+              homeroomAdvisors={advisors}
+              onSelectStudent={handleSelectStudent}
+            />
+          ) : currentView === 'DORMITORY_STUDENTS' && currentUser ? (
+            <DormitoryStudentsView
+              dormitories={dormitories}
+              students={students}
+              currentAcademicYear={systemSettings.currentAcademicYear}
+              initialDormId={selectedDormIdForStudentsView}
+              systemSettings={systemSettings}
+              onSelectStudent={handleSelectStudent}
+              onClearAllStudentDormitories={handleClearAllStudentDormitories}
+              onAssignStudentDormitory={handleAssignStudentDormitory}
+              onBatchAssignStudentsDormitory={handleBatchAssignStudentsDormitory}
+              onBackToDormitories={() => setCurrentView('DORMITORIES')}
             />
           ) : currentView === 'IMPORT' && currentUser ? (
             <ImportStudentsModal
@@ -1574,6 +1761,7 @@ export default function App() {
         <AddStudentModal
           currentAcademicYear={systemSettings.currentAcademicYear}
           advisors={advisors}
+          dormitories={dormitories}
           existingStudents={students}
           onClose={() => setShowAddStudentModal(false)}
           onSave={handleSaveNewStudent}
@@ -1586,6 +1774,7 @@ export default function App() {
           student={editingStudent}
           currentAcademicYear={systemSettings.currentAcademicYear}
           advisors={advisors}
+          dormitories={dormitories}
           systemSettings={systemSettings}
           onClose={() => setEditingStudent(null)}
           onSave={handleUpdateStudent}

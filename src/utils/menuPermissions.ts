@@ -396,6 +396,30 @@ export const ALL_MENU_DEFINITIONS: MenuItemDefinition[] = [
     iconName: 'GraduationCap'
   },
   {
+    key: 'DORMITORIES',
+    title: 'จัดการหอพักนักเรียน',
+    shortTitle: 'จัดการหอพัก',
+    category: 'STUDENT_MGMT',
+    categoryName: 'จัดการนักเรียน',
+    description: 'จัดการหอพัก 3 ประเภท (หอรวม, หอชาย, หอหญิง) ครูผู้ดูแล และผูกนักเรียนกับหอพักอัตโนมัติ',
+    defaultRoles: ['admin', 'staff', 'teacher'],
+    defaultAllowGuest: false,
+    defaultEnabled: true,
+    iconName: 'Building2'
+  },
+  {
+    key: 'DORMITORY_STUDENTS',
+    title: 'รายชื่อนักเรียนในหอพัก',
+    shortTitle: 'รายชื่อในหอพัก',
+    category: 'STUDENT_MGMT',
+    categoryName: 'จัดการนักเรียน',
+    description: 'ดูรายชื่อนักเรียนแยกตามหอพัก กรองเพศ ระดับชั้น ห้องเรียน และส่งออกข้อมูล CSV',
+    defaultRoles: ['admin', 'staff', 'teacher'],
+    defaultAllowGuest: false,
+    defaultEnabled: true,
+    iconName: 'Users'
+  },
+  {
     key: 'IMPORT',
     title: 'นำเข้านักเรียนด้วยไฟล์ Excel / CSV',
     shortTitle: 'นำเข้านักเรียน CSV',
