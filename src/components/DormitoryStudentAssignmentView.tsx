@@ -7,6 +7,7 @@ import {
 } from '../utils/dormitoryLogic';
 import { calculateStudentGrade, parseConductCutoffs } from '../utils/conductLogic';
 import { StudentAvatar } from './StudentAvatar';
+import { Pagination } from './Pagination';
 import {
   Building2,
   Users,
@@ -80,6 +81,10 @@ export const DormitoryStudentAssignmentView: React.FC<DormitoryStudentAssignment
   // Selected student IDs for batch movement
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [targetDormId, setTargetDormId] = useState<string>('');
+
+  // Pagination state: 25, 50, 75, 100, ทั้งหมด
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(25);
 
   // Loading states & notifications
   const [isProcessing, setIsProcessing] = useState(false);
@@ -192,20 +197,30 @@ export const DormitoryStudentAssignmentView: React.FC<DormitoryStudentAssignment
     });
   }, [assignedStudents, assignedDormFilter, genderFilter, gradeFilter, roomFilter, searchQuery]);
 
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [viewScope, searchQuery, genderFilter, gradeFilter, roomFilter, assignedDormFilter, pageSize]);
+
+  const currentList = viewScope === 'UNASSIGNED' ? filteredUnassigned : filteredAssigned;
+
+  const paginatedList = useMemo(() => {
+    if (pageSize >= 999999) return currentList;
+    const start = (currentPage - 1) * pageSize;
+    return currentList.slice(start, start + pageSize);
+  }, [currentList, currentPage, pageSize]);
+
   // Handle select / unselect all in visible page
   const isAllSelected = useMemo(() => {
-    const currentList = viewScope === 'UNASSIGNED' ? filteredUnassigned : filteredAssigned;
-    if (currentList.length === 0) return false;
-    return currentList.every(i => selectedStudentIds.includes(i.student.id));
-  }, [viewScope, filteredUnassigned, filteredAssigned, selectedStudentIds]);
+    if (paginatedList.length === 0) return false;
+    return paginatedList.every(i => selectedStudentIds.includes(i.student.id));
+  }, [paginatedList, selectedStudentIds]);
 
   const toggleSelectAll = () => {
-    const currentList = viewScope === 'UNASSIGNED' ? filteredUnassigned : filteredAssigned;
     if (isAllSelected) {
-      const listIds = currentList.map(i => i.student.id);
+      const listIds = paginatedList.map(i => i.student.id);
       setSelectedStudentIds(prev => prev.filter(id => !listIds.includes(id)));
     } else {
-      const listIds = currentList.map(i => i.student.id);
+      const listIds = paginatedList.map(i => i.student.id);
       setSelectedStudentIds(prev => Array.from(new Set([...prev, ...listIds])));
     }
   };
@@ -787,7 +802,7 @@ export const DormitoryStudentAssignmentView: React.FC<DormitoryStudentAssignment
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredUnassigned.map(item => {
+                  {paginatedList.map(item => {
                     const { student, gender, grade, room, recommendedDorm, recommendationReason } = item;
                     const isSelected = selectedStudentIds.includes(student.id);
 
@@ -934,7 +949,7 @@ export const DormitoryStudentAssignmentView: React.FC<DormitoryStudentAssignment
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredAssigned.map(item => {
+                  {paginatedList.map(item => {
                     const { student, gender, grade, room, dormitory } = item;
                     const isSelected = selectedStudentIds.includes(student.id);
 
@@ -1032,6 +1047,22 @@ export const DormitoryStudentAssignmentView: React.FC<DormitoryStudentAssignment
             )
           )}
         </div>
+
+        {/* Pagination Component */}
+        {currentList.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalItems={currentList.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setCurrentPage(1);
+            }}
+            pageSizeOptions={[25, 50, 75, 100, 'ALL']}
+            itemLabel="คน"
+          />
+        )}
       </div>
 
       {/* 7. Modal: Quick Move Single Student */}

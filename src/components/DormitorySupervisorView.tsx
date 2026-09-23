@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Dormitory, DormitorySupervisor, AppUser, SystemSettings } from '../types';
 import { getDormitorySupervisors } from '../utils/dormitoryLogic';
 import { AddEditDormitoryTeacherModal } from './AddEditDormitoryTeacherModal';
+import { Pagination } from './Pagination';
 import {
   UserCheck,
   Building2,
@@ -52,6 +53,14 @@ export const DormitorySupervisorView: React.FC<DormitorySupervisorViewProps> = (
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDormFilter, setSelectedDormFilter] = useState<string>('ALL');
 
+  // Pagination state: 25, 50, 75, 100, ทั้งหมด
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(25);
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedDormFilter, searchQuery, pageSize]);
+
   // Feedback notifications
   const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -87,6 +96,12 @@ export const DormitorySupervisorView: React.FC<DormitorySupervisorViewProps> = (
       return true;
     });
   }, [allTeachers, selectedDormFilter, searchQuery]);
+
+  const paginatedTeachers = useMemo(() => {
+    if (pageSize >= 999999) return filteredTeachers;
+    const start = (currentPage - 1) * pageSize;
+    return filteredTeachers.slice(start, start + pageSize);
+  }, [filteredTeachers, currentPage, pageSize]);
 
   // Handle Save (Add or Edit) Teacher
   const handleSaveTeacher = async (data: {
@@ -415,10 +430,10 @@ export const DormitorySupervisorView: React.FC<DormitorySupervisorViewProps> = (
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredTeachers.map((teacher, idx) => (
+                {paginatedTeachers.map((teacher, idx) => (
                   <tr key={`${teacher.dormitoryId}-${teacher.id}`} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3.5 px-4 text-center text-slate-400 font-mono">
-                      {idx + 1}
+                      {(pageSize >= 999999 ? 0 : (currentPage - 1) * pageSize) + idx + 1}
                     </td>
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-3">
@@ -487,6 +502,22 @@ export const DormitorySupervisorView: React.FC<DormitorySupervisorViewProps> = (
               </tbody>
             </table>
           </div>
+        )}
+
+        {/* Pagination Component */}
+        {filteredTeachers.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalItems={filteredTeachers.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setCurrentPage(1);
+            }}
+            pageSizeOptions={[25, 50, 75, 100, 'ALL']}
+            itemLabel="คน"
+          />
         )}
       </div>
 

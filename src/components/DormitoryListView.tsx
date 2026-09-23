@@ -9,6 +9,7 @@ import {
 } from '../utils/dormitoryLogic';
 import { calculateStudentGrade } from '../utils/conductLogic';
 import { AddEditDormitoryModal } from './AddEditDormitoryModal';
+import { Pagination } from './Pagination';
 import {
   Building2,
   Users,
@@ -73,6 +74,12 @@ export const DormitoryListView: React.FC<DormitoryListViewProps> = ({
 
   // Selected dorm for viewing student list in drawer/modal
   const [viewingDormId, setViewingDormId] = useState<string | null>(null);
+  const [modalPage, setModalPage] = useState<number>(1);
+  const [modalPageSize, setModalPageSize] = useState<number>(25);
+
+  React.useEffect(() => {
+    setModalPage(1);
+  }, [viewingDormId, modalPageSize]);
 
   // Active students only
   const activeStudents = useMemo(() => {
@@ -152,6 +159,17 @@ export const DormitoryListView: React.FC<DormitoryListViewProps> = ({
   const viewingDorm = useMemo(() => {
     return activeDorms.find(d => d.id === viewingDormId) || null;
   }, [activeDorms, viewingDormId]);
+
+  const modalStudents = useMemo(() => {
+    if (!viewingDorm) return [];
+    return dormStats[viewingDorm.id]?.students || [];
+  }, [viewingDorm, dormStats]);
+
+  const paginatedModalStudents = useMemo(() => {
+    if (modalPageSize >= 999999) return modalStudents;
+    const start = (modalPage - 1) * modalPageSize;
+    return modalStudents.slice(start, start + modalPageSize);
+  }, [modalStudents, modalPage, modalPageSize]);
 
   return (
     <div className="space-y-6">
@@ -566,56 +584,71 @@ export const DormitoryListView: React.FC<DormitoryListViewProps> = ({
             </div>
 
             {/* Students Table */}
-            <div className="flex-1 overflow-y-auto p-4">
-              {(dormStats[viewingDorm.id]?.students || []).length === 0 ? (
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {modalStudents.length === 0 ? (
                 <div className="py-12 text-center text-slate-400 text-xs">
                   ยังไม่มีนักเรียนถูกจัดสรรเข้าหอพักนี้
                 </div>
               ) : (
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200 sticky top-0">
-                    <tr>
-                      <th className="py-2.5 px-3">รหัส</th>
-                      <th className="py-2.5 px-3">ชื่อ - นามสกุล</th>
-                      <th className="py-2.5 px-3">ชั้น/ห้อง</th>
-                      <th className="py-2.5 px-3">เพศ</th>
-                      <th className="py-2.5 px-3 text-right">คะแนนพฤติกรรม</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {(dormStats[viewingDorm.id]?.students || []).map(st => {
-                      const { grade } = calculateStudentGrade(st.entryYear, st.entryLevel, currentAcademicYear);
-                      const room = st.room;
-                      return (
-                        <tr key={st.id} className="hover:bg-slate-50">
-                          <td className="py-2.5 px-3 font-mono font-bold text-slate-700">
-                            {st.id}
-                          </td>
-                          <td className="py-2.5 px-3 font-bold text-slate-900">
-                            {st.title || ''}{st.firstName} {st.lastName}
-                          </td>
-                          <td className="py-2.5 px-3 text-slate-600">
-                            {grade}/{room}
-                          </td>
-                          <td className="py-2.5 px-3">
-                            <span
-                              className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                                st.gender === 'M'
-                                  ? 'bg-blue-50 text-blue-700'
-                                  : 'bg-pink-50 text-pink-700'
-                              }`}
-                            >
-                              {st.gender === 'M' ? 'ชาย' : 'หญิง'}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-3 text-right font-bold text-slate-800">
-                            {st.currentScore ?? 100}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                <>
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200 sticky top-0">
+                      <tr>
+                        <th className="py-2.5 px-3">รหัส</th>
+                        <th className="py-2.5 px-3">ชื่อ - นามสกุล</th>
+                        <th className="py-2.5 px-3">ชั้น/ห้อง</th>
+                        <th className="py-2.5 px-3">เพศ</th>
+                        <th className="py-2.5 px-3 text-right">คะแนนพฤติกรรม</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {paginatedModalStudents.map(st => {
+                        const { grade } = calculateStudentGrade(st.entryYear, st.entryLevel, currentAcademicYear);
+                        const room = st.room;
+                        return (
+                          <tr key={st.id} className="hover:bg-slate-50">
+                            <td className="py-2.5 px-3 font-mono font-bold text-slate-700">
+                              {st.id}
+                            </td>
+                            <td className="py-2.5 px-3 font-bold text-slate-900">
+                              {st.title || ''}{st.firstName} {st.lastName}
+                            </td>
+                            <td className="py-2.5 px-3 text-slate-600">
+                              {grade}/{room}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                                  st.gender === 'M'
+                                    ? 'bg-blue-50 text-blue-700'
+                                    : 'bg-pink-50 text-pink-700'
+                                }`}
+                              >
+                                {st.gender === 'M' ? 'ชาย' : 'หญิง'}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-bold text-slate-800">
+                              {st.currentScore ?? 100}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+
+                  <Pagination
+                    currentPage={modalPage}
+                    totalItems={modalStudents.length}
+                    pageSize={modalPageSize}
+                    onPageChange={setModalPage}
+                    onPageSizeChange={(newSize) => {
+                      setModalPageSize(newSize);
+                      setModalPage(1);
+                    }}
+                    pageSizeOptions={[25, 50, 75, 100, 'ALL']}
+                    itemLabel="คน"
+                  />
+                </>
               )}
             </div>
 

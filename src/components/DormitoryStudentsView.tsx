@@ -21,6 +21,7 @@ import {
   DEFAULT_DORMITORIES
 } from '../utils/dormitoryLogic';
 import { StudentAvatar } from './StudentAvatar';
+import { Pagination } from './Pagination';
 import {
   Building2,
   Users,
@@ -116,6 +117,14 @@ export const DormitoryStudentsView: React.FC<DormitoryStudentsViewProps> = ({
   const [selectedScoreFilter, setSelectedScoreFilter] = useState<ScoreFilterType>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  // Pagination state: 25, 50, 75, 100, ทั้งหมด
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(25);
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedDormFilter, selectedGenderFilter, selectedGradeFilter, selectedRoomFilter, selectedScoreFilter, searchQuery, pageSize]);
+
   // Cutoffs for score badges
   const cutoffs = useMemo(() => parseConductCutoffs(systemSettings), [systemSettings]);
 
@@ -193,6 +202,13 @@ export const DormitoryStudentsView: React.FC<DormitoryStudentsViewProps> = ({
     currentAcademicYear,
     systemSettings
   ]);
+
+  // Paginated students slice
+  const paginatedStudents = useMemo(() => {
+    if (pageSize >= 999999) return filteredStudents;
+    const start = (currentPage - 1) * pageSize;
+    return filteredStudents.slice(start, start + pageSize);
+  }, [filteredStudents, currentPage, pageSize]);
 
   // Aggregate statistics
   const stats = useMemo(() => {
@@ -738,16 +754,16 @@ export const DormitoryStudentsView: React.FC<DormitoryStudentsViewProps> = ({
                   <th className="py-3 px-3 text-center w-10">
                     <input
                       type="checkbox"
-                      checked={filteredStudents.length > 0 && selectedStudentIds.length === filteredStudents.length}
+                      checked={paginatedStudents.length > 0 && paginatedStudents.every(s => selectedStudentIds.includes(s.id))}
                       onChange={(e) => {
                         if (e.target.checked) {
-                          setSelectedStudentIds(filteredStudents.map(s => s.id));
+                          setSelectedStudentIds(prev => Array.from(new Set([...prev, ...paginatedStudents.map(s => s.id)])));
                         } else {
-                          setSelectedStudentIds([]);
+                          setSelectedStudentIds(prev => prev.filter(id => !paginatedStudents.some(s => s.id === id)));
                         }
                       }}
                       className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                      title="เลือกทั้งหมด"
+                      title="เลือกทั้งหมดในหน้านี้"
                     />
                   </th>
                 )}
@@ -773,7 +789,7 @@ export const DormitoryStudentsView: React.FC<DormitoryStudentsViewProps> = ({
                   </td>
                 </tr>
               ) : (
-                filteredStudents.map((st, index) => {
+                paginatedStudents.map((st, index) => {
                   const { grade } = calculateStudentGrade(
                     st.entryYear,
                     st.entryLevel,
@@ -807,7 +823,7 @@ export const DormitoryStudentsView: React.FC<DormitoryStudentsViewProps> = ({
                       )}
 
                       <td className="py-2.5 px-3 text-center font-mono text-slate-400">
-                        {index + 1}
+                        {(pageSize >= 999999 ? 0 : (currentPage - 1) * pageSize) + index + 1}
                       </td>
 
                       <td className="py-2.5 px-3 font-mono font-bold text-slate-800">
@@ -965,6 +981,20 @@ export const DormitoryStudentsView: React.FC<DormitoryStudentsViewProps> = ({
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Component */}
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredStudents.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setCurrentPage(1);
+          }}
+          pageSizeOptions={[25, 50, 75, 100, 'ALL']}
+          itemLabel="คน"
+        />
       </div>
 
       {/* Confirmation Modal to Clear All Dormitories */}
