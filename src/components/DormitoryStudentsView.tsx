@@ -44,7 +44,8 @@ import {
   UserMinus,
   UserPlus,
   Loader2,
-  X
+  X,
+  DoorOpen
 } from 'lucide-react';
 
 interface DormitoryStudentsViewProps {
@@ -133,6 +134,31 @@ export const DormitoryStudentsView: React.FC<DormitoryStudentsViewProps> = ({
     return students.filter(s => s.status !== 'GRADUATED' && s.status !== 'TRANSFERRED');
   }, [students]);
 
+  // Distinct rooms from active students in system (dynamically filtered by selectedGradeFilter if selected)
+  const availableRooms = useMemo(() => {
+    const relevantStudents = activeStudents.filter(s => {
+      if (selectedGradeFilter === 'ALL') return true;
+      const { grade } = calculateStudentGrade(s.entryYear, s.entryLevel, currentAcademicYear);
+      return grade === selectedGradeFilter;
+    });
+    const roomSet = new Set<number>();
+    relevantStudents.forEach(s => {
+      if (s.room) {
+        const rNum = Number(s.room);
+        if (!isNaN(rNum) && rNum > 0) roomSet.add(rNum);
+      }
+    });
+    const rooms = Array.from(roomSet).sort((a, b) => a - b);
+    return rooms.length > 0 ? rooms : [1, 2, 3, 4];
+  }, [activeStudents, selectedGradeFilter, currentAcademicYear]);
+
+  // Auto reset selectedRoomFilter if selected room no longer exists in availableRooms
+  React.useEffect(() => {
+    if (selectedRoomFilter !== 'ALL' && !availableRooms.includes(Number(selectedRoomFilter))) {
+      setSelectedRoomFilter('ALL');
+    }
+  }, [availableRooms, selectedRoomFilter]);
+
   // Map dormitories by ID
   const dormMap = useMemo(() => {
     const map = new Map<string, Dormitory>();
@@ -145,6 +171,25 @@ export const DormitoryStudentsView: React.FC<DormitoryStudentsViewProps> = ({
     if (selectedDormFilter === 'ALL' || selectedDormFilter === 'UNASSIGNED') return null;
     return dormMap.get(selectedDormFilter) || null;
   }, [selectedDormFilter, dormMap]);
+
+  // Classrooms in active selected dorm with gender breakdown
+  const activeDormClassrooms = useMemo(() => {
+    if (!activeDormObject) return [];
+    const dormStudents = activeStudents.filter(s => s.dormitoryId === activeDormObject.id);
+    const counts: Record<string, { total: number; male: number; female: number }> = {};
+    dormStudents.forEach(st => {
+      const { grade } = calculateStudentGrade(st.entryYear, st.entryLevel, currentAcademicYear);
+      const key = `${grade}/${st.room}`;
+      if (!counts[key]) {
+        counts[key] = { total: 0, male: 0, female: 0 };
+      }
+      counts[key].total++;
+      const g = st.gender || inferStudentGender(st);
+      if (g === 'M') counts[key].male++;
+      else if (g === 'F') counts[key].female++;
+    });
+    return Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0], 'th', { numeric: true }));
+  }, [activeDormObject, activeStudents, currentAcademicYear]);
 
   // Filtered students list
   const filteredStudents = useMemo(() => {
@@ -548,6 +593,42 @@ export const DormitoryStudentsView: React.FC<DormitoryStudentsViewProps> = ({
                   ? 'ทุกห้อง'
                   : activeDormObject.assignedRooms.join(', ')}
               </p>
+
+              {/* Classrooms in this dorm with male and female separation */}
+              {activeDormClassrooms.length > 0 && (
+                <div className="pt-2">
+                  <div className="text-[11px] font-bold text-indigo-300 flex items-center gap-1.5 mb-1.5">
+                    <DoorOpen className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>ห้องเรียนที่อยู่ในหอพัก ({activeDormClassrooms.length} ห้อง):</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {activeDormClassrooms.map(([roomKey, data]) => (
+                      <span
+                        key={roomKey}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/10 text-white font-bold text-[11px] border border-white/15 backdrop-blur-xs"
+                      >
+                        <span className="font-black text-white">{roomKey}</span>
+                        <span className="text-[10px] text-slate-200 font-normal">
+                          ({data.total} คน •{' '}
+                          {data.male > 0 && data.female > 0 ? (
+                            <>
+                              <span className="text-blue-300 font-bold">ช {data.male}</span>{' '}
+                              <span className="text-pink-300 font-bold">ญ {data.female}</span>
+                            </>
+                          ) : data.male > 0 ? (
+                            <span className="text-blue-300 font-bold">ชาย {data.male}</span>
+                          ) : data.female > 0 ? (
+                            <span className="text-pink-300 font-bold">หญิง {data.female}</span>
+                          ) : (
+                            <span>{data.total} คน</span>
+                          )}
+                          )
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Multiple Supervisors Display (as required: ครูหอพักมีมากกว่า 1 คน) */}
@@ -585,9 +666,9 @@ export const DormitoryStudentsView: React.FC<DormitoryStudentsViewProps> = ({
 
       {/* 3. Filter Controls Row */}
       <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 text-xs">
           {/* Search Box */}
-          <div className="relative lg:col-span-2">
+          <div className="relative sm:col-span-2 lg:col-span-2">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -627,6 +708,22 @@ export const DormitoryStudentsView: React.FC<DormitoryStudentsViewProps> = ({
             </select>
           </div>
 
+          {/* Room Filter (Dynamically from system) */}
+          <div>
+            <select
+              value={selectedRoomFilter}
+              onChange={e => setSelectedRoomFilter(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none cursor-pointer"
+            >
+              <option value="ALL">ห้องเรียน: ทุกห้อง</option>
+              {availableRooms.map(r => (
+                <option key={r} value={String(r)}>
+                  ห้อง {r}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Score Filter */}
           <div>
             <select
@@ -656,6 +753,7 @@ export const DormitoryStudentsView: React.FC<DormitoryStudentsViewProps> = ({
           {(selectedDormFilter !== 'ALL' ||
             selectedGenderFilter !== 'ALL' ||
             selectedGradeFilter !== 'ALL' ||
+            selectedRoomFilter !== 'ALL' ||
             selectedScoreFilter !== 'ALL' ||
             searchQuery) && (
             <button

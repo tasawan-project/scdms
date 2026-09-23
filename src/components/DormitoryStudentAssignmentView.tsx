@@ -44,7 +44,6 @@ interface DormitoryStudentAssignmentViewProps {
 }
 
 const ALL_GRADES: GradeLevel[] = ['ม.1', 'ม.2', 'ม.3', 'ม.4', 'ม.5', 'ม.6'];
-const STANDARD_ROOMS = [1, 2, 3, 4, 5, 6, 7, 8];
 
 export const DormitoryStudentAssignmentView: React.FC<DormitoryStudentAssignmentViewProps> = ({
   dormitories = [],
@@ -77,6 +76,31 @@ export const DormitoryStudentAssignmentView: React.FC<DormitoryStudentAssignment
   const [gradeFilter, setGradeFilter] = useState<string>('ALL');
   const [roomFilter, setRoomFilter] = useState<string>('ALL');
   const [assignedDormFilter, setAssignedDormFilter] = useState<string>('ALL');
+
+  // Distinct rooms from active students in system (dynamically filtered by gradeFilter if selected)
+  const availableRooms = useMemo(() => {
+    const relevantStudents = activeStudents.filter(s => {
+      if (gradeFilter === 'ALL') return true;
+      const { grade } = calculateStudentGrade(s.entryYear, s.entryLevel, currentAcademicYear);
+      return grade === gradeFilter;
+    });
+    const roomSet = new Set<number>();
+    relevantStudents.forEach(s => {
+      if (s.room) {
+        const rNum = Number(s.room);
+        if (!isNaN(rNum) && rNum > 0) roomSet.add(rNum);
+      }
+    });
+    const rooms = Array.from(roomSet).sort((a, b) => a - b);
+    return rooms.length > 0 ? rooms : [1, 2, 3, 4];
+  }, [activeStudents, gradeFilter, currentAcademicYear]);
+
+  // Auto reset roomFilter if selected room no longer exists in availableRooms
+  React.useEffect(() => {
+    if (roomFilter !== 'ALL' && !availableRooms.includes(Number(roomFilter))) {
+      setRoomFilter('ALL');
+    }
+  }, [availableRooms, roomFilter]);
 
   // Selected student IDs for batch movement
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
@@ -691,9 +715,9 @@ export const DormitoryStudentAssignmentView: React.FC<DormitoryStudentAssignment
         </div>
 
         {/* Filters Bar */}
-        <div className="p-4 bg-slate-50/70 border-b border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className={`p-4 bg-slate-50/70 border-b border-slate-100 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 ${viewScope === 'ASSIGNED' ? 'lg:grid-cols-6' : 'lg:grid-cols-5'} gap-2.5 items-center`}>
           {/* Search */}
-          <div className="relative lg:col-span-2">
+          <div className="relative sm:col-span-2 lg:col-span-2">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -731,26 +755,27 @@ export const DormitoryStudentAssignmentView: React.FC<DormitoryStudentAssignment
             </select>
           </div>
 
-          {/* Room / Assigned Dorm Filter */}
-          {viewScope === 'UNASSIGNED' ? (
-            <div>
-              <select
-                value={roomFilter}
-                onChange={e => setRoomFilter(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-hidden transition-all text-slate-800"
-              >
-                <option value="ALL">ทุกห้องเรียน (1-8)</option>
-                {STANDARD_ROOMS.map(r => (
-                  <option key={r} value={String(r)}>ห้อง {r}</option>
-                ))}
-              </select>
-            </div>
-          ) : (
+          {/* Room Filter (Dynamically from system) */}
+          <div>
+            <select
+              value={roomFilter}
+              onChange={e => setRoomFilter(e.target.value)}
+              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-hidden transition-all text-slate-800 cursor-pointer"
+            >
+              <option value="ALL">ห้องเรียน: ทุกห้อง</option>
+              {availableRooms.map(r => (
+                <option key={r} value={String(r)}>ห้อง {r}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Assigned Dorm Filter (when viewing assigned students) */}
+          {viewScope === 'ASSIGNED' && (
             <div>
               <select
                 value={assignedDormFilter}
                 onChange={e => setAssignedDormFilter(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-hidden transition-all text-slate-800"
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-hidden transition-all text-slate-800 cursor-pointer"
               >
                 <option value="ALL">ทุกหอพัก</option>
                 {activeDorms.map(d => (

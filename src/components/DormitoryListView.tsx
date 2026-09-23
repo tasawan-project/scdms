@@ -5,7 +5,8 @@ import {
   getDormitoryTypeName,
   getDormitoryTypeBadge,
   getDormitorySupervisors,
-  formatSupervisorsList
+  formatSupervisorsList,
+  inferStudentGender
 } from '../utils/dormitoryLogic';
 import { calculateStudentGrade } from '../utils/conductLogic';
 import { AddEditDormitoryModal } from './AddEditDormitoryModal';
@@ -102,9 +103,10 @@ export const DormitoryListView: React.FC<DormitoryListViewProps> = ({
         stats[st.dormitoryId].students.push(st);
         stats[st.dormitoryId].count++;
         occ++;
-        if (st.gender === 'M') {
+        const g = st.gender || inferStudentGender(st);
+        if (g === 'M') {
           stats[st.dormitoryId].maleCount++;
-        } else if (st.gender === 'F') {
+        } else if (g === 'F') {
           stats[st.dormitoryId].femaleCount++;
         }
       }
@@ -170,6 +172,24 @@ export const DormitoryListView: React.FC<DormitoryListViewProps> = ({
     const start = (modalPage - 1) * modalPageSize;
     return modalStudents.slice(start, start + modalPageSize);
   }, [modalStudents, modalPage, modalPageSize]);
+
+  // Classrooms in viewing dorm with gender breakdown
+  const modalClassroomsList = useMemo(() => {
+    if (!viewingDorm) return [];
+    const counts: Record<string, { total: number; male: number; female: number }> = {};
+    modalStudents.forEach(st => {
+      const { grade } = calculateStudentGrade(st.entryYear, st.entryLevel, currentAcademicYear);
+      const key = `${grade}/${st.room}`;
+      if (!counts[key]) {
+        counts[key] = { total: 0, male: 0, female: 0 };
+      }
+      counts[key].total++;
+      const g = st.gender || inferStudentGender(st);
+      if (g === 'M') counts[key].male++;
+      else if (g === 'F') counts[key].female++;
+    });
+    return Object.entries(counts).sort((a, b) => a[0].localeCompare(b[0], 'th', { numeric: true }));
+  }, [viewingDorm, modalStudents, currentAcademicYear]);
 
   return (
     <div className="space-y-6">
@@ -369,13 +389,22 @@ export const DormitoryListView: React.FC<DormitoryListViewProps> = ({
             const badge = getDormitoryTypeBadge(dorm.gender);
 
             const dormStudents = dormStats[dorm.id]?.students || [];
-            const classroomCounts: Record<string, number> = {};
+            const classroomData: Record<string, { total: number; male: number; female: number }> = {};
             dormStudents.forEach(st => {
               const { grade } = calculateStudentGrade(st.entryYear, st.entryLevel, currentAcademicYear);
               const key = `${grade}/${st.room}`;
-              classroomCounts[key] = (classroomCounts[key] || 0) + 1;
+              if (!classroomData[key]) {
+                classroomData[key] = { total: 0, male: 0, female: 0 };
+              }
+              classroomData[key].total++;
+              const g = st.gender || inferStudentGender(st);
+              if (g === 'M') {
+                classroomData[key].male++;
+              } else if (g === 'F') {
+                classroomData[key].female++;
+              }
             });
-            const classroomsList = Object.entries(classroomCounts).sort((a, b) => {
+            const classroomsList = Object.entries(classroomData).sort((a, b) => {
               return a[0].localeCompare(b[0], 'th', { numeric: true });
             });
 
@@ -463,9 +492,14 @@ export const DormitoryListView: React.FC<DormitoryListViewProps> = ({
                           <span>ห้องเรียนที่อยู่ในหอพัก:</span>
                         </div>
                         {classroomsList.length > 0 && (
-                          <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
-                            {classroomsList.length} ห้องเรียน
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                              {classroomsList.length} ห้องเรียน
+                            </span>
+                            <span className="text-[10px] text-slate-500 font-medium">
+                              (ช {dormStats[dorm.id]?.maleCount || 0} • ญ {dormStats[dorm.id]?.femaleCount || 0})
+                            </span>
+                          </div>
                         )}
                       </div>
                       <div className="text-slate-600 text-[11px] leading-relaxed">
@@ -473,13 +507,28 @@ export const DormitoryListView: React.FC<DormitoryListViewProps> = ({
                           <span className="text-slate-400 italic">ยังไม่มีนักเรียนในหอพักนี้</span>
                         ) : (
                           <div className="flex flex-wrap gap-1.5 pt-0.5">
-                            {classroomsList.map(([roomKey, cnt]) => (
+                            {classroomsList.map(([roomKey, data]) => (
                               <span
                                 key={roomKey}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-800 font-bold text-[11px] shadow-2xs"
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white border border-slate-200 text-slate-800 font-bold text-[11px] shadow-2xs"
                               >
-                                <span>{roomKey}</span>
-                                <span className="text-[10px] text-slate-400 font-medium">({cnt} คน)</span>
+                                <span className="font-black text-slate-900">{roomKey}</span>
+                                <span className="text-[10px] text-slate-500 font-normal">
+                                  ({data.total} คน •{' '}
+                                  {data.male > 0 && data.female > 0 ? (
+                                    <>
+                                      <span className="text-blue-600 font-bold">ช {data.male}</span>{' '}
+                                      <span className="text-pink-600 font-bold">ญ {data.female}</span>
+                                    </>
+                                  ) : data.male > 0 ? (
+                                    <span className="text-blue-600 font-bold">ชาย {data.male}</span>
+                                  ) : data.female > 0 ? (
+                                    <span className="text-pink-600 font-bold">หญิง {data.female}</span>
+                                  ) : (
+                                    <span>{data.total} คน</span>
+                                  )}
+                                  )
+                                </span>
                               </span>
                             ))}
                           </div>
@@ -562,25 +611,62 @@ export const DormitoryListView: React.FC<DormitoryListViewProps> = ({
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             {/* Modal Header */}
-            <div className="px-6 py-4 bg-gradient-to-r from-indigo-700 to-indigo-800 text-white flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-white/15 flex items-center justify-center font-black text-lg">
-                  {viewingDorm.dormNumber}
+            <div className="px-6 py-4 bg-gradient-to-r from-indigo-700 to-indigo-800 text-white shrink-0 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-white/15 flex items-center justify-center font-black text-lg">
+                    {viewingDorm.dormNumber}
+                  </div>
+                  <div>
+                    <h3 className="font-black text-base">{viewingDorm.name}</h3>
+                    <p className="text-xs text-indigo-200 font-medium">
+                      นักเรียนทั้งหมด {modalStudents.length} คน (ความจุ {viewingDorm.capacity || 80} คน)
+                      <span className="text-indigo-300"> • ชาย {dormStats[viewingDorm.id]?.maleCount || 0} คน • หญิง {dormStats[viewingDorm.id]?.femaleCount || 0} คน</span>
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-black text-base">{viewingDorm.name}</h3>
-                  <p className="text-xs text-indigo-200 font-medium">
-                    นักเรียนทั้งหมด {dormStats[viewingDorm.id]?.count || 0} คน (ความจุ {viewingDorm.capacity || 80} คน)
-                  </p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setViewingDormId(null)}
+                  className="text-white/80 hover:text-white cursor-pointer font-bold text-lg"
+                >
+                  ✕
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setViewingDormId(null)}
-                className="text-white/80 hover:text-white cursor-pointer font-bold text-lg"
-              >
-                ✕
-              </button>
+
+              {/* Classrooms in this dorm with male and female separation */}
+              {modalClassroomsList.length > 0 && (
+                <div className="pt-2 border-t border-white/15 flex flex-wrap gap-1.5 items-center">
+                  <span className="text-[11px] text-indigo-200 font-bold flex items-center gap-1 mr-1">
+                    <DoorOpen className="w-3.5 h-3.5" />
+                    <span>ห้องเรียน ({modalClassroomsList.length} ห้อง):</span>
+                  </span>
+                  {modalClassroomsList.map(([roomKey, data]) => (
+                    <span
+                      key={roomKey}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/15 text-white font-bold text-[10px] backdrop-blur-xs border border-white/10"
+                    >
+                      <span>{roomKey}</span>
+                      <span className="text-indigo-200 font-normal">
+                        ({data.total} คน •{' '}
+                        {data.male > 0 && data.female > 0 ? (
+                          <>
+                            <span className="text-blue-300 font-bold">ช {data.male}</span>{' '}
+                            <span className="text-pink-300 font-bold">ญ {data.female}</span>
+                          </>
+                        ) : data.male > 0 ? (
+                          <span className="text-blue-300 font-bold">ชาย {data.male}</span>
+                        ) : data.female > 0 ? (
+                          <span className="text-pink-300 font-bold">หญิง {data.female}</span>
+                        ) : (
+                          <span>{data.total} คน</span>
+                        )}
+                        )
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Students Table */}

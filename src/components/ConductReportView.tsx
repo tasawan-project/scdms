@@ -178,6 +178,31 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
   const [gradeSortBy, setGradeSortBy] = useState<'SCORE_ASC' | 'SCORE_DESC' | 'ROOM_NUM' | 'ID'>('ROOM_NUM');
   const [gradeTextSearch, setGradeTextSearch] = useState<string>('');
 
+  // Distinct rooms from students in the system (filtered by gradeLevelFilter if selected)
+  const availableGradeRooms = useMemo(() => {
+    const relevantStudents = students.filter(s => {
+      if (gradeLevelFilter === 'ALL') return true;
+      const g = calculateStudentGrade(s.entryYear, s.entryLevel, currentAcademicYear);
+      return g.grade === gradeLevelFilter;
+    });
+    const roomSet = new Set<number>();
+    relevantStudents.forEach(s => {
+      if (s.room) {
+        const rNum = Number(s.room);
+        if (!isNaN(rNum) && rNum > 0) roomSet.add(rNum);
+      }
+    });
+    const rooms = Array.from(roomSet).sort((a, b) => a - b);
+    return rooms.length > 0 ? rooms : [1, 2, 3, 4];
+  }, [students, gradeLevelFilter, currentAcademicYear]);
+
+  // Auto reset gradeRoomFilter if selected room no longer exists in availableGradeRooms
+  React.useEffect(() => {
+    if (gradeRoomFilter !== 'ALL' && !availableGradeRooms.includes(Number(gradeRoomFilter))) {
+      setGradeRoomFilter('ALL');
+    }
+  }, [availableGradeRooms, gradeRoomFilter]);
+
   const gradeLevelStudents = useMemo(() => {
     return students.filter(s => {
       const g = calculateStudentGrade(s.entryYear, s.entryLevel, currentAcademicYear);
@@ -1339,10 +1364,10 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
                   <select
                     value={gradeRoomFilter}
                     onChange={e => setGradeRoomFilter(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
                   >
                     <option value="ALL">ทุกห้อง</option>
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map(r => (
+                    {availableGradeRooms.map(r => (
                       <option key={r} value={String(r)}>ห้อง {r}</option>
                     ))}
                   </select>
