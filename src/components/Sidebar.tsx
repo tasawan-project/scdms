@@ -32,7 +32,8 @@ import {
   MinusCircle,
   ClipboardCheck,
   Activity,
-  Building2
+  Building2,
+  DoorOpen
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -68,6 +69,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   // Collapsible sub-menus: default to open as per standard admin dashboards
   const [reportsOpen, setReportsOpen] = useState<boolean>(true);
+  const [dormMgmtOpen, setDormMgmtOpen] = useState<boolean>(true);
   const [studentMgmtOpen, setStudentMgmtOpen] = useState<boolean>(true);
   const [settingsMgmtOpen, setSettingsMgmtOpen] = useState<boolean>(true);
 
@@ -84,6 +86,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Helper to check dynamic menu permission
   const canAccess = (view: AppView) =>
     canUserAccessMenu(view, currentUser, studentGrant, systemSettings?.menuPermissions);
+
+  // Check if dormitory management group has access
+  const hasDormMgmtAccess =
+    canAccess('DORMITORIES') ||
+    canAccess('DORMITORY_ASSIGN') ||
+    canAccess('DORMITORY_LIST') ||
+    canAccess('DORMITORY_TEACHERS') ||
+    canAccess('DORMITORY_STUDENTS');
 
   // Check if groups have any visible child items
   const hasStudentMgmtAccess =
@@ -217,6 +227,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         )}
 
+        {/* Item: ทำเนียบ 100+ */}
+        {canAccess('HONOUR') && (
+          <button
+            type="button"
+            id="sidebar-nav-honour"
+            onClick={() => handleNav('HONOUR')}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-bold transition-all cursor-pointer text-left ${
+              currentView === 'HONOUR'
+                ? 'bg-violet-700 text-white shadow-sm'
+                : 'text-violet-900 hover:bg-violet-50'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <Award className={`w-4 h-4 shrink-0 ${currentView === 'HONOUR' ? 'text-amber-300' : 'text-amber-500'}`} />
+              <span>ทำเนียบ 100+</span>
+            </div>
+            <span
+              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                currentView === 'HONOUR' ? 'bg-violet-800 text-amber-300' : 'bg-amber-100 text-amber-800'
+              }`}
+            >
+              100+
+            </span>
+          </button>
+        )}
+
         {/* Item: ตรวจสอบคะแนน */}
         {canAccess('CHECK_SCORE') && (
           <button
@@ -294,85 +330,130 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         )}
 
-        {/* Item 3.5: จัดการหอพัก */}
-        {canAccess('DORMITORIES') && (
-          <button
-            type="button"
-            id="sidebar-nav-dormitories"
-            onClick={() => handleNav('DORMITORIES')}
-            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-bold transition-all cursor-pointer text-left ${
-              currentView === 'DORMITORIES'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <Building2 className="w-4 h-4 shrink-0" />
-              <span>จัดการหอพัก</span>
-            </div>
-            <span
-              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
-                currentView === 'DORMITORIES'
-                  ? 'bg-indigo-700 text-white'
-                  : 'bg-indigo-50 text-indigo-700 border border-indigo-200/60'
-              }`}
-            >
-              หอพัก
-            </span>
-          </button>
-        )}
-
-        {/* Item 3.6: รายชื่อนักเรียนในหอพัก */}
-        {canAccess('DORMITORY_STUDENTS') && (
-          <button
-            type="button"
-            id="sidebar-nav-dormitory-students"
-            onClick={() => handleNav('DORMITORY_STUDENTS')}
-            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-bold transition-all cursor-pointer text-left ${
-              currentView === 'DORMITORY_STUDENTS'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <Users className="w-4 h-4 shrink-0" />
-              <span>รายชื่อในหอพัก</span>
-            </div>
-            <span
-              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+        {/* ========================================================================= */}
+        {/* GROUP: จัดการหอพัก (SUB-MENU) */}
+        {/* ========================================================================= */}
+        {hasDormMgmtAccess && (
+          <div className="pt-1">
+            {/* Header / Toggle Button */}
+            <button
+              type="button"
+              id="sidebar-nav-dormitories-toggle"
+              onClick={() => setDormMgmtOpen(prev => !prev)}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-colors cursor-pointer ${
+                currentView === 'DORMITORIES' ||
+                currentView === 'DORMITORY_ASSIGN' ||
+                currentView === 'DORMITORY_LIST' ||
+                currentView === 'DORMITORY_TEACHERS' ||
                 currentView === 'DORMITORY_STUDENTS'
-                  ? 'bg-indigo-700 text-white'
-                  : 'bg-purple-50 text-purple-700 border border-purple-200/60'
+                  ? 'bg-indigo-50/90 text-indigo-950 border border-indigo-200/80 shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
-              รายชื่อ
-            </span>
-          </button>
-        )}
+              <div className="flex items-center gap-2">
+                <Building2 className={`w-4 h-4 shrink-0 ${
+                  currentView.startsWith('DORMITORY') || currentView === 'DORMITORIES' ? 'text-indigo-600' : 'text-slate-500'
+                }`} />
+                <span className="font-bold text-xs normal-case">จัดการหอพัก</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {dormMgmtOpen ? (
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                ) : (
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                )}
+              </div>
+            </button>
 
-        {/* Item 4: ทำเนียบ 100+ */}
-        {canAccess('HONOUR') && (
-          <button
-            type="button"
-            onClick={() => handleNav('HONOUR')}
-            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-bold transition-all cursor-pointer text-left ${
-              currentView === 'HONOUR'
-                ? 'bg-violet-700 text-white shadow-sm'
-                : 'text-violet-900 hover:bg-violet-50'
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <Award className={`w-4 h-4 shrink-0 ${currentView === 'HONOUR' ? 'text-amber-300' : 'text-amber-500'}`} />
-              <span>ทำเนียบ 100+</span>
-            </div>
-            <span
-              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
-                currentView === 'HONOUR' ? 'bg-violet-800 text-amber-300' : 'bg-amber-100 text-amber-800'
-              }`}
-            >
-              100+
-            </span>
-          </button>
+            {/* Sub-items */}
+            {dormMgmtOpen && (
+              <div className="pl-2 pr-1 space-y-1 mt-1.5 border-l-2 border-indigo-100 ml-3">
+                {/* 1. จัดการนักเรียนเข้าหอพัก */}
+                {(canAccess('DORMITORY_ASSIGN') || canAccess('DORMITORIES')) && (
+                  <button
+                    type="button"
+                    id="sidebar-dorm-assign"
+                    onClick={() => handleNav('DORMITORY_ASSIGN')}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-left ${
+                      currentView === 'DORMITORY_ASSIGN' || currentView === 'DORMITORIES'
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <DoorOpen className={`w-3.5 h-3.5 shrink-0 ${
+                        currentView === 'DORMITORY_ASSIGN' || currentView === 'DORMITORIES' ? 'text-white' : 'text-indigo-500'
+                      }`} />
+                      <span className="truncate">จัดการนักเรียนเข้าหอพัก</span>
+                    </div>
+                  </button>
+                )}
+
+                {/* 2. รายชื่อหอพัก */}
+                {(canAccess('DORMITORY_LIST') || canAccess('DORMITORIES')) && (
+                  <button
+                    type="button"
+                    id="sidebar-dorm-list"
+                    onClick={() => handleNav('DORMITORY_LIST')}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-left ${
+                      currentView === 'DORMITORY_LIST'
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <Building2 className={`w-3.5 h-3.5 shrink-0 ${
+                        currentView === 'DORMITORY_LIST' ? 'text-white' : 'text-indigo-500'
+                      }`} />
+                      <span className="truncate">รายชื่อหอพัก</span>
+                    </div>
+                  </button>
+                )}
+
+                {/* 3. ครูหอพัก */}
+                {(canAccess('DORMITORY_TEACHERS') || canAccess('DORMITORIES')) && (
+                  <button
+                    type="button"
+                    id="sidebar-dorm-teachers"
+                    onClick={() => handleNav('DORMITORY_TEACHERS')}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-left ${
+                      currentView === 'DORMITORY_TEACHERS'
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <UserCheck className={`w-3.5 h-3.5 shrink-0 ${
+                        currentView === 'DORMITORY_TEACHERS' ? 'text-white' : 'text-indigo-500'
+                      }`} />
+                      <span className="truncate">ครูหอพัก</span>
+                    </div>
+                  </button>
+                )}
+
+                {/* 4. รายชื่อในหอพัก */}
+                {canAccess('DORMITORY_STUDENTS') && (
+                  <button
+                    type="button"
+                    id="sidebar-dorm-students"
+                    onClick={() => handleNav('DORMITORY_STUDENTS')}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-left ${
+                      currentView === 'DORMITORY_STUDENTS'
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <Users className={`w-3.5 h-3.5 shrink-0 ${
+                        currentView === 'DORMITORY_STUDENTS' ? 'text-white' : 'text-indigo-500'
+                      }`} />
+                      <span className="truncate">รายชื่อในหอพัก</span>
+                    </div>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         )}
 
         {/* ========================================================================= */}

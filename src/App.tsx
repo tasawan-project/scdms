@@ -1471,13 +1471,25 @@ export default function App() {
               onSyncClassroom={handleSyncClassroomAdvisor}
               onSelectStudent={handleSelectStudent}
             />
-          ) : currentView === 'DORMITORIES' && currentUser ? (
+          ) : (currentView === 'DORMITORIES' || currentView === 'DORMITORY_ASSIGN' || currentView === 'DORMITORY_LIST' || currentView === 'DORMITORY_TEACHERS') && currentUser ? (
             <DormitoryManagementView
               dormitories={dormitories}
               students={students}
               currentAcademicYear={systemSettings.currentAcademicYear}
               currentUser={currentUser}
               systemSettings={systemSettings}
+              activeSubTab={
+                currentView === 'DORMITORY_LIST'
+                  ? 'LIST'
+                  : currentView === 'DORMITORY_TEACHERS'
+                  ? 'TEACHERS'
+                  : 'ASSIGN'
+              }
+              onSubTabChange={(tab) => {
+                if (tab === 'ASSIGN') setCurrentView('DORMITORY_ASSIGN');
+                else if (tab === 'LIST') setCurrentView('DORMITORY_LIST');
+                else if (tab === 'TEACHERS') setCurrentView('DORMITORY_TEACHERS');
+              }}
               onSaveDormitory={handleSaveDormitory}
               onBatchSaveDormitories={handleBatchSaveDormitories}
               onDeleteDormitory={handleDeleteDormitory}

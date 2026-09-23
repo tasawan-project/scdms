@@ -18,11 +18,7 @@ import {
   Save,
   AlertCircle,
   Users,
-  Check,
-  Info,
-  Sparkles,
-  SlidersHorizontal,
-  CheckCircle2
+  Check
 } from 'lucide-react';
 
 interface AddEditDormitoryModalProps {
@@ -36,7 +32,6 @@ interface AddEditDormitoryModalProps {
 }
 
 const ALL_GRADES: GradeLevel[] = ['ม.1', 'ม.2', 'ม.3', 'ม.4', 'ม.5', 'ม.6'];
-const STANDARD_ROOMS = [1, 2, 3, 4, 5, 6, 7, 8];
 
 export const AddEditDormitoryModal: React.FC<AddEditDormitoryModalProps> = ({
   isOpen,
@@ -44,8 +39,7 @@ export const AddEditDormitoryModal: React.FC<AddEditDormitoryModalProps> = ({
   dormitory,
   existingDorms,
   onSave,
-  onDelete,
-  homeroomAdvisors = []
+  onDelete
 }) => {
   const isEditing = !!dormitory;
 
@@ -54,23 +48,9 @@ export const AddEditDormitoryModal: React.FC<AddEditDormitoryModalProps> = ({
   const [name, setName] = useState<string>('');
   const [gender, setGender] = useState<DormitoryType>('MIXED');
   const [capacity, setCapacity] = useState<number>(80);
-  const [assignedGrades, setAssignedGrades] = useState<GradeLevel[]>(['ม.1']);
-  const [assignedRooms, setAssignedRooms] = useState<number[]>([]);
   const [notes, setNotes] = useState<string>('');
 
-  // Grade-specific gender rules: e.g. ม.1 MIXED, ม.2 F, ม.3 F
-  const [gradeRules, setGradeRules] = useState<
-    Record<GradeLevel, { gender: DormitoryType; rooms: number[] }>
-  >({
-    'ม.1': { gender: 'MIXED', rooms: [] },
-    'ม.2': { gender: 'MIXED', rooms: [] },
-    'ม.3': { gender: 'MIXED', rooms: [] },
-    'ม.4': { gender: 'MIXED', rooms: [] },
-    'ม.5': { gender: 'MIXED', rooms: [] },
-    'ม.6': { gender: 'MIXED', rooms: [] }
-  });
-
-  // Supervisors state: ครูหอพัก (ต้องการเพิ่มเอง ไม่มีปล่อยว่างไว้ และครูหอพักมีมากกว่า 1 คน)
+  // Supervisors state: ครูหอพัก (เพิ่มเองได้มากกว่า 1 คน ไม่ปล่อยว่างไว้)
   const [supervisors, setSupervisors] = useState<DormitorySupervisor[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -84,38 +64,9 @@ export const AddEditDormitoryModal: React.FC<AddEditDormitoryModalProps> = ({
       // Edit mode
       setDormNumber(dormitory.dormNumber || 1);
       setName(dormitory.name || '');
-      setGender(dormitory.gender || 'M');
+      setGender(dormitory.gender || 'MIXED');
       setCapacity(dormitory.capacity || 80);
-      setAssignedGrades(dormitory.assignedGrades || ['ม.1']);
-      setAssignedRooms(dormitory.assignedRooms || []);
       setNotes(dormitory.notes || '');
-
-      // Load grade rules
-      const initialRules: Record<GradeLevel, { gender: DormitoryType; rooms: number[] }> = {
-        'ม.1': { gender: 'MIXED', rooms: [] },
-        'ม.2': { gender: 'MIXED', rooms: [] },
-        'ม.3': { gender: 'MIXED', rooms: [] },
-        'ม.4': { gender: 'MIXED', rooms: [] },
-        'ม.5': { gender: 'MIXED', rooms: [] },
-        'ม.6': { gender: 'MIXED', rooms: [] }
-      };
-
-      const rulesSource = dormitory.gradeGenderRules || dormitory.assignedClassrooms || [];
-      ALL_GRADES.forEach(g => {
-        const found = rulesSource.find(r => r.grade === g);
-        if (found) {
-          initialRules[g] = {
-            gender: found.gender || dormitory.gender || 'MIXED',
-            rooms: found.rooms || []
-          };
-        } else {
-          initialRules[g] = {
-            gender: dormitory.gender || 'MIXED',
-            rooms: dormitory.assignedRooms || []
-          };
-        }
-      });
-      setGradeRules(initialRules);
 
       // Parse supervisors
       if (dormitory.supervisors && dormitory.supervisors.length > 0) {
@@ -137,7 +88,6 @@ export const AddEditDormitoryModal: React.FC<AddEditDormitoryModalProps> = ({
           }
         ]);
       } else {
-        // Start with at least 1 empty entry for the user to fill
         setSupervisors([
           {
             id: `sup-${Date.now()}-1`,
@@ -158,19 +108,7 @@ export const AddEditDormitoryModal: React.FC<AddEditDormitoryModalProps> = ({
       setName(`หอพัก ${nextNumber} (หอพักรวม)`);
       setGender('MIXED');
       setCapacity(80);
-      setAssignedGrades(['ม.1']);
-      setAssignedRooms([]);
       setNotes('');
-
-      const defaultRules: Record<GradeLevel, { gender: DormitoryType; rooms: number[] }> = {
-        'ม.1': { gender: 'MIXED', rooms: [] },
-        'ม.2': { gender: 'MIXED', rooms: [] },
-        'ม.3': { gender: 'MIXED', rooms: [] },
-        'ม.4': { gender: 'MIXED', rooms: [] },
-        'ม.5': { gender: 'MIXED', rooms: [] },
-        'ม.6': { gender: 'MIXED', rooms: [] }
-      };
-      setGradeRules(defaultRules);
 
       // Start with 2 supervisor slots ready for user input (more than 1 person)
       setSupervisors([
@@ -199,31 +137,6 @@ export const AddEditDormitoryModal: React.FC<AddEditDormitoryModalProps> = ({
     if (!name || name.startsWith('หอพัก ')) {
       setName(`หอพัก ${dormNumber} (${typeLabel})`);
     }
-
-    // Also update default gender of all grade rules to match
-    setGradeRules(prev => {
-      const next = { ...prev };
-      ALL_GRADES.forEach(g => {
-        next[g] = {
-          gender: newType,
-          rooms: next[g]?.rooms || []
-        };
-      });
-      return next;
-    });
-  };
-
-  // Preset based on exact user prompt: ม.1 ทั้งชายและหญิง, ม.2 หญิง, ม.3 หญิง
-  const handleApplyUserExample = () => {
-    setGender('MIXED');
-    setAssignedGrades(['ม.1', 'ม.2', 'ม.3']);
-    setGradeRules(prev => ({
-      ...prev,
-      'ม.1': { gender: 'MIXED', rooms: [] },
-      'ม.2': { gender: 'F', rooms: [] },
-      'ม.3': { gender: 'F', rooms: [] }
-    }));
-    setName(`หอพัก ${dormNumber} (หอพักรวม - ม.1 รวม / ม.2-3 หญิง)`);
   };
 
   // Add a new supervisor field
@@ -253,7 +166,7 @@ export const AddEditDormitoryModal: React.FC<AddEditDormitoryModalProps> = ({
     setSupervisors(prev => prev.filter(s => s.id !== id));
   };
 
-  // Update a supervisor field
+  // Update specific supervisor field
   const handleUpdateSupervisor = (
     id: string,
     field: keyof DormitorySupervisor,
@@ -262,7 +175,6 @@ export const AddEditDormitoryModal: React.FC<AddEditDormitoryModalProps> = ({
     setSupervisors(prev =>
       prev.map(s => (s.id === id ? { ...s, [field]: value } : s))
     );
-    // Clear error for supervisors if fixed
     if (field === 'name' && value.trim()) {
       setErrors(prev => {
         const next = { ...prev };
@@ -273,8 +185,7 @@ export const AddEditDormitoryModal: React.FC<AddEditDormitoryModalProps> = ({
     }
   };
 
-  // Form submission with strict validation:
-  // "ครูหอพัก ต้องการเพิ่มเอง ไม่มีปล่อยว่างไว้และครูหอพักมีมากกว่า 1 คน"
+  // Form submission with validation
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: Record<string, string> = {};
@@ -285,10 +196,6 @@ export const AddEditDormitoryModal: React.FC<AddEditDormitoryModalProps> = ({
 
     if (dormNumber <= 0) {
       newErrors.dormNumber = 'หมายเลขหอพักต้องมากกว่า 0';
-    }
-
-    if (assignedGrades.length === 0) {
-      newErrors.assignedGrades = 'กรุณาเลือกระดับชั้นที่สังกัดหอพักอย่างน้อย 1 ระดับชั้น';
     }
 
     // Validate supervisors: "ไม่มีปล่อยว่างไว้และครูหอพักมีมากกว่า 1 คน"
@@ -322,37 +229,24 @@ export const AddEditDormitoryModal: React.FC<AddEditDormitoryModalProps> = ({
       }));
 
       const dormId = dormitory ? dormitory.id : `dorm-${dormNumber}`;
+      const existingAssignedGrades = dormitory?.assignedGrades || ALL_GRADES;
+      const existingAssignedRooms = dormitory?.assignedRooms || [];
 
-      // Build structured grade rules
-      const builtClassroomRules: DormitoryClassroomRule[] = assignedGrades.map(g => ({
+      const builtClassroomRules: DormitoryClassroomRule[] = existingAssignedGrades.map(g => ({
         grade: g,
-        gender: gradeRules[g]?.gender || gender,
-        rooms: (gradeRules[g]?.rooms && gradeRules[g].rooms.length > 0)
-          ? gradeRules[g].rooms
-          : (assignedRooms || [])
+        gender: gender,
+        rooms: existingAssignedRooms
       }));
-
-      // Calculate effective overall dorm gender based on grade rules
-      const hasMale = builtClassroomRules.some(r => r.gender === 'M' || r.gender === 'MIXED');
-      const hasFemale = builtClassroomRules.some(r => r.gender === 'F' || r.gender === 'MIXED');
-      let effectiveGender: DormitoryType = gender;
-      if (hasMale && hasFemale) {
-        effectiveGender = 'MIXED';
-      } else if (hasMale && !hasFemale) {
-        effectiveGender = 'M';
-      } else if (hasFemale && !hasMale) {
-        effectiveGender = 'F';
-      }
 
       const updatedDorm: Dormitory = {
         id: dormId,
         dormNumber,
         name: name.trim(),
-        gender: effectiveGender,
-        assignedGrades,
-        assignedRooms,
-        assignedClassrooms: builtClassroomRules,
-        gradeGenderRules: builtClassroomRules,
+        gender: gender,
+        assignedGrades: existingAssignedGrades,
+        assignedRooms: existingAssignedRooms,
+        assignedClassrooms: dormitory?.assignedClassrooms || builtClassroomRules,
+        gradeGenderRules: dormitory?.gradeGenderRules || builtClassroomRules,
         capacity: Number(capacity) || 80,
         supervisors: cleanedSupervisors,
         supervisorName: cleanedSupervisors[0]?.name || '',
@@ -393,10 +287,10 @@ export const AddEditDormitoryModal: React.FC<AddEditDormitoryModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-      <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden my-6 transition-all">
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden">
         {/* Modal Header */}
-        <div className="p-5 sm:p-6 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-slate-50 via-indigo-50/40 to-white">
+        <div className="px-5 py-4 sm:px-6 sm:py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70 shrink-0">
           <div className="flex items-center gap-3">
             <div
               className={`w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-sm shrink-0 ${
@@ -431,7 +325,7 @@ export const AddEditDormitoryModal: React.FC<AddEditDormitoryModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                กำหนดประเภทหอพัก ระดับชั้น/ห้อง และรายชื่อครูผู้ดูแลหอพักประจำ
+                กำหนดประเภทหอพัก หมายเลข ชื่อ และรายชื่อครูผู้ดูแลหอพักประจำ
               </p>
             </div>
           </div>
@@ -453,7 +347,7 @@ export const AddEditDormitoryModal: React.FC<AddEditDormitoryModalProps> = ({
             </div>
           )}
 
-          {/* Section 1: ประเภทหอพัก (3 ประเภท ตามที่ผู้ใช้ต้องการ) */}
+          {/* Section 1: ประเภทหอพัก (3 ประเภท) */}
           <div className="space-y-2">
             <label className="block font-black text-slate-800 text-xs uppercase tracking-wider">
               ประเภทหอพัก (3 ประเภท) <span className="text-rose-500">*</span>
@@ -576,7 +470,35 @@ export const AddEditDormitoryModal: React.FC<AddEditDormitoryModalProps> = ({
             </div>
           </div>
 
-          {/* Section 3: ครูผู้ดูแลหอพัก (สำคัญ: เพิ่มเองได้มากกว่า 1 คน และห้ามปล่อยว่างไว้) */}
+          {/* Section 3: ความจุและหมายเหตุ */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">
+                ความจุเตียง/คน (คน)
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={capacity}
+                onChange={e => setCapacity(parseInt(e.target.value) || 80)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block font-bold text-slate-700 mb-1">
+                หมายเหตุ / คำอธิบาย
+              </label>
+              <input
+                type="text"
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="เช่น อาคารหอพักฝั่งตะวันออก หรือ หอพักปรับปรุงใหม่"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Section 4: ครูผู้ดูแลหอพัก (เพิ่มเองได้มากกว่า 1 คน และห้ามปล่อยว่างไว้) */}
           <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/50 border border-amber-200/80 space-y-3">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
@@ -695,419 +617,40 @@ export const AddEditDormitoryModal: React.FC<AddEditDormitoryModalProps> = ({
                 );
               })}
             </div>
-
-            {/* Quick-suggest teachers from HomeroomAdvisors if available */}
-            {homeroomAdvisors.length > 0 && (
-              <div className="pt-2 border-t border-amber-200/60">
-                <span className="text-[11px] text-slate-500 block mb-1 font-medium">
-                  💡 หรือเลือกเร็วจากรายชื่อครูในระบบ:
-                </span>
-                <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto pr-1">
-                  {homeroomAdvisors.slice(0, 10).map(adv => (
-                    <button
-                      type="button"
-                      key={adv.id}
-                      onClick={() => {
-                        // Fill into first empty or add new
-                        const emptySlot = supervisors.find(s => !s.name.trim());
-                        if (emptySlot) {
-                          handleUpdateSupervisor(emptySlot.id, 'name', adv.fullName);
-                          if (adv.phone) handleUpdateSupervisor(emptySlot.id, 'phone', adv.phone);
-                        } else {
-                          setSupervisors(prev => [
-                            ...prev,
-                            {
-                              id: `sup-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-                              name: adv.fullName,
-                              phone: adv.phone || '',
-                              role: 'ครูหอพักประจำ'
-                            }
-                          ]);
-                        }
-                      }}
-                      className="text-[10px] bg-white hover:bg-amber-100 text-slate-700 border border-amber-200 px-2 py-0.5 rounded-lg transition-colors cursor-pointer"
-                    >
-                      + {adv.fullName}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Section 4: ระดับชั้นที่สังกัดหอพัก (ม.1 - ม.6) */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="block font-bold text-slate-700">
-                ระดับชั้นที่สังกัดหอพักนี้ <span className="text-rose-500">*</span>
-              </label>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setAssignedGrades(['ม.1', 'ม.2', 'ม.3'])}
-                  className="text-[11px] text-indigo-600 hover:underline font-bold"
-                >
-                  ม.ต้น
-                </button>
-                <span className="text-slate-300">|</span>
-                <button
-                  type="button"
-                  onClick={() => setAssignedGrades(['ม.4', 'ม.5', 'ม.6'])}
-                  className="text-[11px] text-indigo-600 hover:underline font-bold"
-                >
-                  ม.ปลาย
-                </button>
-                <span className="text-slate-300">|</span>
-                <button
-                  type="button"
-                  onClick={() => setAssignedGrades([...ALL_GRADES])}
-                  className="text-[11px] text-indigo-600 hover:underline font-bold"
-                >
-                  ทั้งหมด
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-              {ALL_GRADES.map(grade => {
-                const isSelected = assignedGrades.includes(grade);
-                return (
-                  <button
-                    type="button"
-                    key={grade}
-                    onClick={() => {
-                      setAssignedGrades(prev =>
-                        isSelected
-                          ? prev.filter(g => g !== grade)
-                          : [...prev, grade].sort()
-                      );
-                    }}
-                    className={`py-2 rounded-xl font-bold transition-all cursor-pointer text-center ${
-                      isSelected
-                        ? 'bg-indigo-600 text-white shadow-xs'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    {grade}
-                  </button>
-                );
-              })}
-            </div>
-            {errors.assignedGrades && (
-              <span className="text-[11px] text-rose-500 font-bold block">
-                {errors.assignedGrades}
-              </span>
-            )}
-          </div>
-
-          {/* Section 4.5: กำหนดเพศที่รับในแต่ละระดับชั้น (Grade-specific Gender Rules) */}
-          <div className="p-4 sm:p-5 rounded-2xl bg-indigo-50/60 border border-indigo-200/90 space-y-3.5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
-                  <Sparkles className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="font-black text-indigo-950 text-xs sm:text-sm flex items-center gap-2">
-                    <span>กำหนดเพศที่รับแยกตามระดับชั้น</span>
-                    <span className="text-[10px] bg-indigo-200/70 text-indigo-800 px-2 py-0.5 rounded-full font-bold">
-                      ละเอียดตามระดับชั้น
-                    </span>
-                  </h4>
-                  <p className="text-[11px] text-indigo-700">
-                    กำหนดได้ว่าแต่ละระดับชั้นรับเฉพาะเพศใด เช่น ม.1 รับทั้งชายและหญิง, ม.2 และ ม.3 รับเฉพาะหญิง
-                  </p>
-                </div>
-              </div>
-
-              {/* User Example Preset Button */}
-              <button
-                type="button"
-                onClick={handleApplyUserExample}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs transition-all cursor-pointer shadow-xs shrink-0"
-                title="คลิกเพื่อตั้งค่าตัวอย่าง: ม.1 รับทั้งชายและหญิง, ม.2 และ ม.3 รับเฉพาะหญิง"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>ใช้ตัวอย่าง: ม.1 รวม / ม.2-3 หญิง</span>
-              </button>
-            </div>
-
-            {/* Quick Batch Change for selected grades */}
-            <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-indigo-200/60 text-[11px]">
-              <span className="font-bold text-slate-700">ตั้งค่าทุกชั้นที่เลือกเป็น:</span>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setGradeRules(prev => {
-                      const next = { ...prev };
-                      assignedGrades.forEach(g => {
-                        next[g] = { ...(next[g] || { rooms: [] }), gender: 'MIXED' };
-                      });
-                      return next;
-                    });
-                  }}
-                  className="px-2.5 py-1 bg-white hover:bg-purple-50 text-purple-700 border border-purple-200 rounded-lg font-bold cursor-pointer transition-colors shadow-2xs"
-                >
-                  ⚥ ทั้งชายและหญิง (รวม)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setGradeRules(prev => {
-                      const next = { ...prev };
-                      assignedGrades.forEach(g => {
-                        next[g] = { ...(next[g] || { rooms: [] }), gender: 'M' };
-                      });
-                      return next;
-                    });
-                  }}
-                  className="px-2.5 py-1 bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 rounded-lg font-bold cursor-pointer transition-colors shadow-2xs"
-                >
-                  ♂ เฉพาะชาย (M)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setGradeRules(prev => {
-                      const next = { ...prev };
-                      assignedGrades.forEach(g => {
-                        next[g] = { ...(next[g] || { rooms: [] }), gender: 'F' };
-                      });
-                      return next;
-                    });
-                  }}
-                  className="px-2.5 py-1 bg-white hover:bg-pink-50 text-pink-700 border border-pink-200 rounded-lg font-bold cursor-pointer transition-colors shadow-2xs"
-                >
-                  ♀ เฉพาะหญิง (F)
-                </button>
-              </div>
-            </div>
-
-            {/* List of Grade Cards */}
-            <div className="space-y-2 pt-1">
-              {assignedGrades.length === 0 ? (
-                <div className="p-3 bg-white/70 rounded-xl text-center text-xs text-slate-400 italic">
-                  กรุณาเลือกระดับชั้นด้านบนก่อน เพื่อกำหนดเพศที่รับในแต่ละชั้น
-                </div>
-              ) : (
-                assignedGrades.map(grade => {
-                  const rule = gradeRules[grade] || { gender: gender || 'MIXED', rooms: [] };
-                  const currentGender = rule.gender || 'MIXED';
-
-                  return (
-                    <div
-                      key={grade}
-                      className="p-3 bg-white rounded-xl border border-indigo-100 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="w-10 h-10 rounded-xl bg-slate-900 text-white font-black text-sm flex items-center justify-center shrink-0 shadow-2xs">
-                          {grade}
-                        </span>
-                        <div>
-                          <div className="font-bold text-slate-800 text-xs sm:text-sm">
-                            ระดับชั้น {grade}
-                          </div>
-                          <div className="text-[11px] mt-0.5">
-                            {currentGender === 'MIXED' ? (
-                              <span className="text-purple-700 font-bold bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-md inline-flex items-center gap-1">
-                                <span>⚥ รับนักเรียน {grade} ทั้งหมด ทั้งชายและหญิง</span>
-                              </span>
-                            ) : currentGender === 'M' ? (
-                              <span className="text-blue-700 font-bold bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md inline-flex items-center gap-1">
-                                <span>♂ รับเฉพาะนักเรียนชาย {grade} ทั้งหมด</span>
-                              </span>
-                            ) : (
-                              <span className="text-pink-700 font-bold bg-pink-50 border border-pink-200 px-2 py-0.5 rounded-md inline-flex items-center gap-1">
-                                <span>♀ รับเฉพาะนักเรียนหญิง {grade} ทั้งหมด</span>
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Gender Toggle for this Grade */}
-                      <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setGradeRules(prev => ({
-                              ...prev,
-                              [grade]: {
-                                ...(prev[grade] || { rooms: [] }),
-                                gender: 'MIXED'
-                              }
-                            }));
-                          }}
-                          className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                            currentGender === 'MIXED'
-                              ? 'bg-purple-600 text-white shadow-2xs'
-                              : 'text-slate-600 hover:text-purple-700 hover:bg-slate-200/60'
-                          }`}
-                        >
-                          ⚥ ชายและหญิง
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setGradeRules(prev => ({
-                              ...prev,
-                              [grade]: {
-                                ...(prev[grade] || { rooms: [] }),
-                                gender: 'M'
-                              }
-                            }));
-                          }}
-                          className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                            currentGender === 'M'
-                              ? 'bg-blue-600 text-white shadow-2xs'
-                              : 'text-slate-600 hover:text-blue-700 hover:bg-slate-200/60'
-                          }`}
-                        >
-                          ♂ เฉพาะชาย
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setGradeRules(prev => ({
-                              ...prev,
-                              [grade]: {
-                                ...(prev[grade] || { rooms: [] }),
-                                gender: 'F'
-                              }
-                            }));
-                          }}
-                          className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                            currentGender === 'F'
-                              ? 'bg-pink-600 text-white shadow-2xs'
-                              : 'text-slate-600 hover:text-pink-700 hover:bg-slate-200/60'
-                          }`}
-                        >
-                          ♀ เฉพาะหญิง
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-
-          {/* Section 5: ห้องเรียนที่สังกัดหอพัก (เว้นว่างไว้ = รับทุกห้อง) */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="block font-bold text-slate-700">
-                ห้องเรียนที่สังกัด (เว้นว่างไว้ = รับทุกห้อง)
-              </label>
-              <button
-                type="button"
-                onClick={() =>
-                  setAssignedRooms(
-                    assignedRooms.length === STANDARD_ROOMS.length ? [] : [...STANDARD_ROOMS]
-                  )
-                }
-                className="text-[11px] text-indigo-600 hover:underline font-bold"
-              >
-                {assignedRooms.length === STANDARD_ROOMS.length
-                  ? 'ล้างห้อง (รับทุกห้อง)'
-                  : 'เลือกห้อง 1-8 ทั้งหมด'}
-              </button>
-            </div>
-
-            <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
-              {STANDARD_ROOMS.map(roomNum => {
-                const isSelected = assignedRooms.includes(roomNum);
-                return (
-                  <button
-                    type="button"
-                    key={roomNum}
-                    onClick={() => {
-                      setAssignedRooms(prev =>
-                        isSelected
-                          ? prev.filter(r => r !== roomNum)
-                          : [...prev, roomNum].sort((a, b) => a - b)
-                      );
-                    }}
-                    className={`py-1.5 rounded-lg font-mono font-bold transition-all cursor-pointer text-center ${
-                      isSelected
-                        ? 'bg-indigo-600 text-white shadow-xs'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    ห้อง {roomNum}
-                  </button>
-                );
-              })}
-            </div>
-            <span className="text-[11px] text-slate-500 block">
-              {assignedRooms.length === 0
-                ? '✨ รับนักเรียนทุกห้องเรียนในระดับชั้นที่เลือก'
-                : `เฉพาะห้องเรียน: ${assignedRooms.join(', ')}`}
-            </span>
-          </div>
-
-          {/* Section 6: ความจุและหมายเหตุ */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">
-                ความจุเตียง/คน (คน)
-              </label>
-              <input
-                type="number"
-                min="1"
-                value={capacity}
-                onChange={e => setCapacity(parseInt(e.target.value) || 80)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="block font-bold text-slate-700 mb-1">
-                หมายเหตุ / คำอธิบาย
-              </label>
-              <input
-                type="text"
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                placeholder="เช่น หอพักนักเรียน ม.ต้น หรือ อาคาร 3"
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-              />
-            </div>
           </div>
 
           {/* Action Footer */}
           <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
-            {isEditing && onDelete ? (
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={isDeleting || isSubmitting}
-                className="px-3.5 py-2 text-rose-600 bg-rose-50 hover:bg-rose-100 font-bold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>{isDeleting ? 'กำลังลบ...' : 'ลบหอพักนี้'}</span>
-              </button>
-            ) : (
-              <div />
-            )}
+            <div>
+              {isEditing && onDelete && (
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={isDeleting || isSubmitting}
+                  className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>{isDeleting ? 'กำลังลบ...' : 'ลบหอพัก'}</span>
+                </button>
+              )}
+            </div>
 
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={onClose}
-                disabled={isSubmitting || isDeleting}
-                className="px-4 py-2 text-slate-600 bg-slate-100 hover:bg-slate-200 font-bold rounded-xl transition-colors cursor-pointer"
+                disabled={isSubmitting}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition-colors cursor-pointer"
               >
                 ยกเลิก
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting || isDeleting}
-                className="px-5 py-2 text-white bg-indigo-600 hover:bg-indigo-700 font-bold rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-2 disabled:opacity-50"
+                disabled={isSubmitting}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
-                <Save className="w-4 h-4" />
-                <span>{isSubmitting ? 'กำลังบันทึก...' : 'บันทึกหอพัก'}</span>
+                <Save className="w-3.5 h-3.5" />
+                <span>{isSubmitting ? 'กำลังบันทึก...' : 'บันทึกข้อมูลหอพัก'}</span>
               </button>
             </div>
           </div>

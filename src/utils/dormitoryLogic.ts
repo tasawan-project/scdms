@@ -295,8 +295,9 @@ export function getGradeGenderLabel(gender: DormitoryType | string): string {
  * ตัวอย่าง: "ม.1 (ชายและหญิง), ม.2 (เฉพาะหญิง), ม.3 (เฉพาะหญิง)"
  */
 export function getDormitoryRuleSummary(dorm: Dormitory): string {
-  if (!dorm.assignedGrades || dorm.assignedGrades.length === 0) {
-    return 'ยังไม่ได้กำหนดระดับชั้น';
+  if (!dorm.assignedGrades || dorm.assignedGrades.length === 0 || dorm.assignedGrades.length === 6) {
+    if (dorm.notes) return dorm.notes;
+    return 'เปิดรับทุกระดับชั้น (ตามประเภทหอพัก)';
   }
 
   const parts = dorm.assignedGrades.map(grade => {

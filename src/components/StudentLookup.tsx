@@ -280,8 +280,9 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
   // Table state for Recent Scores / Student Conduct Table
   const [levelFilter, setLevelFilter] = useState<'ALL' | EducationalLevel>('ALL');
   const [classroomFilter, setClassroomFilter] = useState<string>('ALL');
+  const [dormitoryFilter, setDormitoryFilter] = useState<string>('ALL');
   const [scoreStatusFilter, setScoreStatusFilter] = useState<ScoreFilterType>('ALL');
-  const [tableSortBy, setTableSortBy] = useState<'latestUpdate' | 'id' | 'name' | 'grade' | 'currentScore'>('latestUpdate');
+  const [tableSortBy, setTableSortBy] = useState<'latestUpdate' | 'id' | 'name' | 'grade' | 'dormitory' | 'currentScore'>('latestUpdate');
   const [tableSortDirection, setTableSortDirection] = useState<'asc' | 'desc'>('desc');
   const [expandedTableStudentIds, setExpandedTableStudentIds] = useState<Set<string>>(new Set());
   const [tablePage, setTablePage] = useState<number>(1);
@@ -392,6 +393,22 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
     return map;
   }, [students, conductLogs]);
 
+  // Map student ID to resolved dormitory information for fast lookup & sorting
+  const studentDormMap = useMemo(() => {
+    const map = new Map<string, { dormId?: string; dormName: string; gender: 'M' | 'F' }>();
+    (students || []).forEach(s => {
+      if (!s) return;
+      const matched = matchStudentToDormitory(s, dormitories, currentAcademicYear);
+      const dormName = s.dormitoryName || matched.dormitory?.name || '';
+      map.set(s.id, {
+        dormId: s.dormitoryId || matched.dormitory?.id,
+        dormName: dormName || 'ยังไม่ระบุ',
+        gender: s.gender || matched.gender
+      });
+    });
+    return map;
+  }, [students, dormitories, currentAcademicYear]);
+
   // Filtered & Sorted Table Students
   const filteredTableStudents = useMemo(() => {
     let result = activeStudents;
@@ -406,7 +423,9 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
         const nameMatch = fullName.includes(clean);
         const nickMatch = (s.nickname || '').toLowerCase().includes(clean);
         const roomMatch = `${s.room || ''}` === clean;
-        return idMatch || nameMatch || nickMatch || roomMatch;
+        const dormInfo = studentDormMap.get(s.id);
+        const dormMatch = (dormInfo?.dormName || '').toLowerCase().includes(clean);
+        return idMatch || nameMatch || nickMatch || roomMatch || dormMatch;
       });
     }
 
@@ -430,6 +449,21 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
         result = result.filter(s => {
           const { grade } = calculateStudentGrade(s.entryYear, s.entryLevel, currentAcademicYear);
           return `${grade}/${s.room}` === classroomFilter;
+        });
+      }
+    }
+
+    // Dormitory filter
+    if (dormitoryFilter !== 'ALL') {
+      if (dormitoryFilter === 'UNASSIGNED') {
+        result = result.filter(s => {
+          const dormInfo = studentDormMap.get(s.id);
+          return !dormInfo?.dormId || dormInfo.dormName === 'ยังไม่ระบุ' || dormInfo.dormName === 'ยังไม่ได้ระบุหอพัก';
+        });
+      } else {
+        result = result.filter(s => {
+          const dormInfo = studentDormMap.get(s.id);
+          return dormInfo?.dormId === dormitoryFilter || dormInfo?.dormName === dormitoryFilter;
         });
       }
     }
@@ -465,6 +499,13 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
         const gradeOrder: Record<string, number> = { 'ม.1': 1, 'ม.2': 2, 'ม.3': 3, 'ม.4': 4, 'ม.5': 5, 'ม.6': 6 };
         const diff = (gradeOrder[gA.grade] || 99) - (gradeOrder[gB.grade] || 99);
         comparison = diff !== 0 ? diff : (Number(a.room) || 0) - (Number(b.room) || 0);
+      } else if (tableSortBy === 'dormitory') {
+        const dormA = studentDormMap.get(a.id)?.dormName || '';
+        const dormB = studentDormMap.get(b.id)?.dormName || '';
+        comparison = dormA.localeCompare(dormB, 'th');
+        if (comparison === 0) {
+          comparison = String(a.id || '').localeCompare(String(b.id || ''));
+        }
       } else if (tableSortBy === 'currentScore') {
         comparison = a.currentScore - b.currentScore;
       }
@@ -478,12 +519,14 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
     searchId,
     levelFilter,
     classroomFilter,
+    dormitoryFilter,
     scoreStatusFilter,
     tableSortBy,
     tableSortDirection,
     currentAcademicYear,
     systemSettings,
-    studentLatestInfoMap
+    studentLatestInfoMap,
+    studentDormMap
   ]);
 
   const paginatedTableStudents = useMemo(() => {
@@ -494,7 +537,7 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
 
   useEffect(() => {
     setTablePage(1);
-  }, [searchId, levelFilter, classroomFilter, scoreStatusFilter, tableSortBy, tableSortDirection, tablePageSize]);
+  }, [searchId, levelFilter, classroomFilter, dormitoryFilter, scoreStatusFilter, tableSortBy, tableSortDirection, tablePageSize]);
 
   const toggleExpandStudent = (studentId: string) => {
     setExpandedTableStudentIds(prev => {
@@ -516,7 +559,7 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
     }
   };
 
-  const handleTableSort = (field: 'latestUpdate' | 'id' | 'name' | 'grade' | 'currentScore') => {
+  const handleTableSort = (field: 'latestUpdate' | 'id' | 'name' | 'grade' | 'dormitory' | 'currentScore') => {
     if (tableSortBy === field) {
       setTableSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
@@ -525,7 +568,7 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
     }
   };
 
-  const getSortIcon = (field: 'latestUpdate' | 'id' | 'name' | 'grade' | 'currentScore') => {
+  const getSortIcon = (field: 'latestUpdate' | 'id' | 'name' | 'grade' | 'dormitory' | 'currentScore') => {
     if (tableSortBy !== field) {
       return <ArrowUpDown className="w-3 h-3 text-slate-300" />;
     }
@@ -536,12 +579,13 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
     );
   };
 
-  const hasActiveFilters = searchId.trim().length > 0 || levelFilter !== 'ALL' || classroomFilter !== 'ALL' || scoreStatusFilter !== 'ALL';
+  const hasActiveFilters = searchId.trim().length > 0 || levelFilter !== 'ALL' || classroomFilter !== 'ALL' || dormitoryFilter !== 'ALL' || scoreStatusFilter !== 'ALL';
 
   const handleClearAllFilters = () => {
     setSearchId('');
     setLevelFilter('ALL');
     setClassroomFilter('ALL');
+    setDormitoryFilter('ALL');
     setScoreStatusFilter('ALL');
   };
 
@@ -1573,7 +1617,7 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
           </div>
 
           {/* Filter Controls */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 bg-slate-50/80 p-3 rounded-2xl border border-slate-200/70">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5 bg-slate-50/80 p-3 rounded-2xl border border-slate-200/70">
             {/* 1. Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
@@ -1642,7 +1686,22 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
               </optgroup>
             </select>
 
-            {/* 4. Score Status */}
+            {/* 4. Dormitory */}
+            <select
+              value={dormitoryFilter}
+              onChange={e => setDormitoryFilter(e.target.value)}
+              className="py-2 px-3 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 shadow-2xs cursor-pointer truncate"
+            >
+              <option value="ALL">หอพัก: ทุกหอพัก</option>
+              {dormitories.map(d => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+              <option value="UNASSIGNED">ยังไม่ระบุหอพัก</option>
+            </select>
+
+            {/* 5. Score Status */}
             <ScoreStatusSelect
               value={scoreStatusFilter}
               onChange={setScoreStatusFilter}
@@ -1687,6 +1746,16 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                       </div>
                     </th>
                     <th
+                      onClick={() => handleTableSort('dormitory')}
+                      className="py-3 px-2.5 sm:px-3.5 cursor-pointer hover:bg-slate-100 transition-colors text-left w-32 sm:w-40"
+                    >
+                      <div className="flex items-center gap-1">
+                        <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                        <span>หอพัก</span>
+                        {getSortIcon('dormitory')}
+                      </div>
+                    </th>
+                    <th
                       onClick={() => handleTableSort('currentScore')}
                       className="py-3 px-2.5 sm:px-3.5 cursor-pointer hover:bg-slate-100 transition-colors text-right w-24 sm:w-28"
                     >
@@ -1712,7 +1781,7 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                 <tbody className="divide-y divide-slate-100 bg-white">
                   {paginatedTableStudents.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-12 text-center text-slate-400">
+                      <td colSpan={8} className="py-12 text-center text-slate-400">
                         <Search className="w-8 h-8 mx-auto mb-2 opacity-30 text-slate-400" />
                         <p className="font-bold text-slate-600 text-sm">ไม่พบข้อมูลนักเรียนตามเงื่อนไข</p>
                         <p className="text-xs text-slate-400 mt-1">ลองปรับคำค้นหา หรือเลือกตัวกรองระดับชั้น/สถานะคะแนนใหม่</p>
@@ -1737,6 +1806,9 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                       const latestInfo = studentLatestInfoMap.get(student.id);
                       const latestLog = latestInfo?.latestLog;
                       const sLogs = latestInfo?.logs || [];
+                      const dormData = studentDormMap.get(student.id);
+                      const dormName = dormData?.dormName || 'ยังไม่ระบุ';
+                      const isDormAssigned = dormName !== 'ยังไม่ระบุ' && dormName !== 'ยังไม่ได้ระบุหอพัก';
 
                       return (
                         <React.Fragment key={student.id}>
@@ -1793,6 +1865,24 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                               <span className="font-bold text-slate-700 bg-slate-100/80 px-2 py-0.5 rounded-md">
                                 {g.grade}/{student.room}
                               </span>
+                            </td>
+
+                            {/* หอพัก */}
+                            <td className="py-3 px-2.5 sm:px-3.5 text-xs">
+                              {isDormAssigned ? (
+                                <span
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold text-xs bg-indigo-50/90 text-indigo-900 border border-indigo-200/80 max-w-[130px] sm:max-w-[170px] truncate shadow-2xs"
+                                  title={dormName}
+                                >
+                                  <Building2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                  <span className="truncate">{dormName}</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-500 border border-slate-200">
+                                  <span className="text-slate-400">-</span>
+                                  <span>ยังไม่ระบุ</span>
+                                </span>
+                              )}
                             </td>
 
                             {/* คะแนน */}
@@ -1864,7 +1954,7 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                           {/* Accordion Row */}
                           {isExpanded && (
                             <tr className="bg-slate-50/95 border-y-2 border-indigo-200/80 animate-in fade-in duration-150">
-                              <td colSpan={7} className="p-3.5 sm:p-5">
+                              <td colSpan={8} className="p-3.5 sm:p-5">
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
                                   {/* Profile Card */}
                                   <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-start gap-3.5">
@@ -1889,6 +1979,10 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                                         <div>เข้าเรียนปี {student.entryYear} ({student.entryLevel})</div>
                                         <div className="truncate text-indigo-700 font-medium">
                                           ครูที่ปรึกษา: {getStudentAdvisors(student, advisors, currentAcademicYear).map(a => a.fullName).join(', ') || student.advisorName || '-'}
+                                        </div>
+                                        <div className="flex items-center gap-1.5 text-indigo-950 font-semibold pt-0.5">
+                                          <Building2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                          <span>หอพัก: <strong className="text-indigo-700">{dormName}</strong></span>
                                         </div>
                                       </div>
                                     </div>

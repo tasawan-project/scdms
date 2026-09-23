@@ -310,6 +310,18 @@ export const ALL_MENU_DEFINITIONS: MenuItemDefinition[] = [
     iconName: 'LayoutDashboard'
   },
   {
+    key: 'HONOUR',
+    title: 'ทำเนียบ 100+ (เกียรติยศ)',
+    shortTitle: 'ทำเนียบ 100+',
+    category: 'CORE',
+    categoryName: 'เมนูหลัก',
+    description: 'ทำเนียบนักเรียนความประพฤติดีเด่นและยอดเยี่ยมที่มีคะแนนสะสม 100 ขึ้นไป',
+    defaultRoles: ['admin', 'staff', 'teacher', 'student'],
+    defaultAllowGuest: true,
+    defaultEnabled: true,
+    iconName: 'Award'
+  },
+  {
     key: 'CHECK_SCORE',
     title: 'ตรวจสอบคะแนนนักเรียน',
     shortTitle: 'ตรวจสอบคะแนน',
@@ -344,18 +356,6 @@ export const ALL_MENU_DEFINITIONS: MenuItemDefinition[] = [
     defaultAllowGuest: false,
     defaultEnabled: true,
     iconName: 'Users'
-  },
-  {
-    key: 'HONOUR',
-    title: 'ทำเนียบ 100+ (เกียรติยศ)',
-    shortTitle: 'ทำเนียบ 100+',
-    category: 'CORE',
-    categoryName: 'เมนูหลัก',
-    description: 'ทำเนียบนักเรียนความประพฤติดีเด่นและยอดเยี่ยมที่มีคะแนนสะสม 100 ขึ้นไป',
-    defaultRoles: ['admin', 'staff', 'teacher', 'student'],
-    defaultAllowGuest: true,
-    defaultEnabled: true,
-    iconName: 'Award'
   },
   {
     key: 'REPORTS',
@@ -406,6 +406,42 @@ export const ALL_MENU_DEFINITIONS: MenuItemDefinition[] = [
     defaultAllowGuest: false,
     defaultEnabled: true,
     iconName: 'Building2'
+  },
+  {
+    key: 'DORMITORY_ASSIGN',
+    title: 'จัดการนักเรียนเข้าหอพัก',
+    shortTitle: 'จัดนักเรียนเข้าหอ',
+    category: 'STUDENT_MGMT',
+    categoryName: 'จัดการนักเรียน',
+    description: 'ดูรายชื่อนักเรียนที่ยังไม่มีหอพัก เลือกรายชื่อนักเรียนและย้ายเข้าหอพักที่ต้องการ',
+    defaultRoles: ['admin', 'staff', 'teacher'],
+    defaultAllowGuest: false,
+    defaultEnabled: true,
+    iconName: 'UserPlus'
+  },
+  {
+    key: 'DORMITORY_LIST',
+    title: 'รายชื่อหอพัก',
+    shortTitle: 'รายชื่อหอพัก',
+    category: 'STUDENT_MGMT',
+    categoryName: 'จัดการนักเรียน',
+    description: 'ดูรายการหอพักทั้งหมด เพิ่มหอพักใหม่ แก้ไข และลบหอพัก',
+    defaultRoles: ['admin', 'staff', 'teacher'],
+    defaultAllowGuest: false,
+    defaultEnabled: true,
+    iconName: 'Building2'
+  },
+  {
+    key: 'DORMITORY_TEACHERS',
+    title: 'ครูหอพัก',
+    shortTitle: 'ครูหอพัก',
+    category: 'STUDENT_MGMT',
+    categoryName: 'จัดการนักเรียน',
+    description: 'จัดการครูหอพัก เพิ่ม แก้ไข และลบข้อมูลครูหอพักประจำหอต่างๆ',
+    defaultRoles: ['admin', 'staff', 'teacher'],
+    defaultAllowGuest: false,
+    defaultEnabled: true,
+    iconName: 'UserCheck'
   },
   {
     key: 'DORMITORY_STUDENTS',
@@ -636,6 +672,17 @@ export function canUserAccessMenu(
     view === 'REPORT_POINTS_DEDUCTED'
   ) {
     return canUserAccessMenu('REPORTS', user, studentGrant, effectivePermissions);
+  }
+
+  // กรณีเมนูย่อยจัดการหอพัก หากไม่ได้ตั้งค่าแยกไว้ ให้ตรวจสอบสิทธิ์เข้าถึงเมนู DORMITORIES หลัก
+  if (
+    view === 'DORMITORY_ASSIGN' ||
+    view === 'DORMITORY_LIST' ||
+    view === 'DORMITORY_TEACHERS'
+  ) {
+    if (!effectivePermissions?.[view]) {
+      return canUserAccessMenu('DORMITORIES', user, studentGrant, effectivePermissions);
+    }
   }
 
   const def = ALL_MENU_DEFINITIONS.find(m => m.key === view);

@@ -63,6 +63,18 @@ interface DormitoryStudentsViewProps {
 
 const ALL_GRADES: GradeLevel[] = ['ม.1', 'ม.2', 'ม.3', 'ม.4', 'ม.5', 'ม.6'];
 
+export const cleanDormDisplayName = (name?: string): string => {
+  if (!name) return '';
+  return name
+    .replace(/\s*\(\s*ชาย\s*\(\s*M\s*\)\s*\)/gi, '')
+    .replace(/\s*\(\s*ชาย\(M\)\s*\)/gi, '')
+    .replace(/\s*\(ชาย\s*M\)/gi, '')
+    .replace(/\s*หอพักชาย\s*\(M\)/gi, '')
+    .replace(/\s*\(M\)/gi, '')
+    .replace(/\s*\(F\)/gi, '')
+    .trim();
+};
+
 export const DormitoryStudentsView: React.FC<DormitoryStudentsViewProps> = ({
   dormitories = [],
   students = [],
@@ -458,7 +470,7 @@ export const DormitoryStudentsView: React.FC<DormitoryStudentsViewProps> = ({
                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                 }`}
               >
-                <span>{dorm.name}</span>
+                <span>{cleanDormDisplayName(dorm.name)}</span>
                 <span
                   className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
                     isSelected
@@ -668,7 +680,7 @@ export const DormitoryStudentsView: React.FC<DormitoryStudentsViewProps> = ({
                 <option value="">-- เลือกหอพักปลายทาง --</option>
                 {activeDorms.map(d => (
                   <option key={d.id} value={d.id}>
-                    {d.name} ({getDormitoryTypeName(d.gender)})
+                    {cleanDormDisplayName(d.name)}
                   </option>
                 ))}
               </select>
@@ -857,14 +869,7 @@ export const DormitoryStudentsView: React.FC<DormitoryStudentsViewProps> = ({
                         {dorm ? (
                           <div>
                             <span className="font-bold text-slate-900 block truncate">
-                              {dorm.name}
-                            </span>
-                            <span
-                              className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md inline-block mt-0.5 ${
-                                getDormitoryTypeBadge(dorm.gender).bgClass
-                              } ${getDormitoryTypeBadge(dorm.gender).textClass}`}
-                            >
-                              {getDormitoryTypeName(dorm.gender)}
+                              {cleanDormDisplayName(dorm.name)}
                             </span>
                           </div>
                         ) : (
@@ -884,7 +889,7 @@ export const DormitoryStudentsView: React.FC<DormitoryStudentsViewProps> = ({
                               <option value="">-- ยังไม่มีหอพัก --</option>
                               {activeDorms.map(d => (
                                 <option key={d.id} value={d.id}>
-                                  {d.name} ({getDormitoryTypeBadge(d.gender).shortLabel})
+                                  {cleanDormDisplayName(d.name)}
                                 </option>
                               ))}
                             </select>
