@@ -150,28 +150,29 @@ export const EditStudentModal: React.FC<EditStudentModalProps> = ({
       updatedAt: new Date().toISOString()
     };
 
-    setIsSaving(true);
-    try {
-      await onSave(updated);
-      onClose();
-    } catch (err: any) {
-      setErrorMsg('เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + err.message);
-    } finally {
-      setIsSaving(false);
-    }
+    // ปิดกล่องรับข้อมูลทันทีเมื่อกดบันทึกข้อมูล
+    onClose();
+
+    // บันทึกข้อมูลนักเรียน (Optimistic state update & Background persistence)
+    onSave(updated).catch((err: any) => {
+      console.error('Error saving updated student:', err);
+      alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + (err?.message || ''));
+    });
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!onDelete) return;
-    setIsDeleting(true);
-    try {
-      await onDelete(student.id);
-      onClose();
-    } catch (err: any) {
-      setErrorMsg('เกิดข้อผิดพลาดในการลบข้อมูล: ' + err.message);
-    } finally {
-      setIsDeleting(false);
+    if (!confirm(`คุณต้องการลบข้อมูลของ ${student.title || ''}${student.firstName} ${student.lastName} (รหัส ${student.id}) ใช่หรือไม่? ข้อมูลประวัติการตัด/เพิ่มคะแนนทั้งหมดจะถูกลบไปด้วย`)) {
+      return;
     }
+    // ปิดกล่องรับข้อมูลทันที
+    onClose();
+
+    // ดำเนินการลบแบบเบื้องหลัง
+    onDelete(student.id).catch((err: any) => {
+      console.error('Error deleting student:', err);
+      alert('เกิดข้อผิดพลาดในการลบข้อมูล: ' + (err?.message || ''));
+    });
   };
 
   return (

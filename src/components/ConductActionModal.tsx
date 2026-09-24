@@ -205,7 +205,7 @@ export const ConductActionModal: React.FC<ConductActionModalProps> = ({
     setViolationDate(d.toISOString().split('T')[0]);
   };
 
-  // Core execution helper for saving
+  // Core execution helper for saving - closes dialog immediately for instant speed
   const executeSubmit = async (
     targetType: ConductType,
     targetPoints: number,
@@ -279,8 +279,7 @@ export const ConductActionModal: React.FC<ConductActionModalProps> = ({
         term: currentTerm
       };
 
-      await onSubmit(log, updatedStudent);
-
+      // 1. Immediately fire celebration confetti if ADD
       if (targetType === 'ADD') {
         confetti({
           particleCount: 75,
@@ -289,8 +288,15 @@ export const ConductActionModal: React.FC<ConductActionModalProps> = ({
         });
       }
 
+      // 2. ปิดกล่องรับข้อมูลทันทีตามคำสั่ง โดยไม่ต้องรอส่งข้อมูลเครือข่าย
       setShowConfirmDialog(false);
       onClose();
+
+      // 3. Dispatch save immediately (updates UI state optimistically & saves to Firestore)
+      onSubmit(log, updatedStudent).catch((err: any) => {
+        console.error('Error submitting conduct log:', err);
+        alert('เกิดข้อผิดพลาดในการบันทึก: ' + (err?.message || 'กรุณาลองใหม่อีกครั้ง'));
+      });
     } catch (err: any) {
       console.error('Error submitting conduct log:', err);
       alert('เกิดข้อผิดพลาดในการบันทึก: ' + (err.message || 'กรุณาลองใหม่อีกครั้ง'));
@@ -389,12 +395,7 @@ export const ConductActionModal: React.FC<ConductActionModalProps> = ({
         updatedAt: new Date().toISOString()
       };
 
-      if (onSaveStandardBehavior) {
-        await onSaveStandardBehavior(createdBehavior);
-      } else {
-        await saveStandardBehavior(createdBehavior);
-      }
-
+      // 1. อัปเดตรายการพฤติกรรมมาตรฐานในหน้าต่างทันที
       setDbBehaviors(prev => {
         const idx = prev.findIndex(b => b.id === createdBehavior.id);
         if (idx >= 0) {
@@ -409,10 +410,22 @@ export const ConductActionModal: React.FC<ConductActionModalProps> = ({
         selectPreset(createdBehavior);
       }
 
+      // 2. ปิดกล่องรับข้อมูลทันที
       setShowAddModal(false);
+
+      // 3. บันทึกลงฐานข้อมูลเบื้องหลัง
+      if (onSaveStandardBehavior) {
+        onSaveStandardBehavior(createdBehavior).catch(err => {
+          console.error('Error saving behavior in background:', err);
+        });
+      } else {
+        saveStandardBehavior(createdBehavior).catch(err => {
+          console.error('Error saving behavior in background:', err);
+        });
+      }
     } catch (err: any) {
-      console.error('Error saving new behavior to database:', err);
-      alert('เกิดข้อผิดพลาดในการบันทึกลงฐานข้อมูล: ' + (err.message || ''));
+      console.error('Error saving new behavior:', err);
+      alert('เกิดข้อผิดพลาดในการบันทึก: ' + (err.message || ''));
     } finally {
       setIsSavingNewBehavior(false);
     }

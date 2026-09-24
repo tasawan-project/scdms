@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Student, ConductLog, GradeLevel, EducationalLevel, AppUser, StudentAccessGrant, ScoreFilterType, ScoreCategoryType, SystemSettings, HomeroomAdvisor } from '../types';
+import { Student, ConductLog, GradeLevel, EducationalLevel, AppUser, StudentAccessGrant, ScoreFilterType, ScoreCategoryType, SystemSettings, HomeroomAdvisor, Dormitory } from '../types';
 import { calculateStudentGrade, getScoreCategory, getOutstandingStudents, parseConductCutoffs, getStudentAdvisors } from '../utils/conductLogic';
+import { matchStudentToDormitory } from '../utils/dormitoryLogic';
 import { formatThaiDate } from '../utils/thaiDate';
 import { StudentAvatar } from './StudentAvatar';
 import { ScoreStatusSelect } from './ScoreStatusSelect';
@@ -39,7 +40,8 @@ import {
   Folder,
   Edit,
   UserPlus,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Building2
 } from 'lucide-react';
 import {
   PieChart,
@@ -64,6 +66,7 @@ interface DashboardProps {
   studentGrant: StudentAccessGrant | null;
   systemSettings?: SystemSettings;
   advisors?: HomeroomAdvisor[];
+  dormitories?: Dormitory[];
   onSelectStudent: (studentId: string) => void;
   onOpenConductAction: (student: Student, defaultType: 'DEDUCT' | 'ADD') => void;
   onOpenGrantModal: (student: Student) => void;
@@ -85,6 +88,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   studentGrant,
   systemSettings,
   advisors = [],
+  dormitories = [],
   onSelectStudent,
   onOpenConductAction,
   onOpenGrantModal,
@@ -107,6 +111,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [levelFilter, setLevelFilter] = useState<'ALL' | EducationalLevel>('ALL');
   const [classroomFilter, setClassroomFilter] = useState<string>('ALL'); // 'ALL' or 'GRADE_ม.1' or 'ม.1/1'
   const [scoreStatusFilter, setScoreStatusFilter] = useState<ScoreFilterType>('ALL');
+  const [dormitoryFilter, setDormitoryFilter] = useState<string>('ALL');
   const [sortField, setSortField] = useState<string>('currentScore');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -115,7 +120,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   // Reset pagination on filter or search changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, levelFilter, classroomFilter, scoreStatusFilter, pageSize]);
+  }, [searchQuery, levelFilter, classroomFilter, scoreStatusFilter, dormitoryFilter, pageSize]);
 
   // Expandable Accordion rows state (Track which student IDs are expanded)
   const [expandedStudentIds, setExpandedStudentIds] = useState<Set<string>>(new Set());
@@ -146,6 +151,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   // Calculate statistics
   const activeStudents = useMemo(() => (students || []).filter(s => s && s.status === 'ACTIVE'), [students]);
+
+  // Map student ID to resolved dormitory information for fast lookup & sorting
+  const studentDormMap = useMemo(() => {
+    const map = new Map<string, { dormId?: string; dormName: string; gender: 'M' | 'F' }>();
+    (students || []).forEach(s => {
+      if (!s) return;
+      const matched = matchStudentToDormitory(s, dormitories || [], currentAcademicYear);
+      const dormName = s.dormitoryName || matched.dormitory?.name || '';
+      map.set(s.id, {
+        dormId: s.dormitoryId || matched.dormitory?.id,
+        dormName: dormName || 'ยังไม่ระบุ',
+        gender: s.gender || matched.gender
+      });
+    });
+    return map;
+  }, [students, dormitories, currentAcademicYear]);
 
   // Extract distinct grades and classrooms dynamically from database
   const availableClassrooms = useMemo(() => {
@@ -264,7 +285,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   // Table filtering and sorting strictly respecting:
   // 1. ระดับ : มัธยมตอนต้น , มัธยมตอนปลาย
   // 2. ชั้น : ม.1/1 - ม.6/7 ให้อ้างอิงจากฐานข้อมูล
-  // 3. ระดับคะแนน : วิกฤต, เฝ้าระวัง, ตักเตือน, ปกติ, ดีเด่น, ยอดเยี่ยม
+  // 3. หอพัก : กรองตามหอพักที่นักเรียนสังกัด
+  // 4. ระดับคะแนน : วิกฤต, เฝ้าระวัง, ตักเตือน, ปกติ, ดีเด่น, ยอดเยี่ยม
   const filteredStudents = useMemo(() => {
     return activeStudents.filter(student => {
       const { grade, level } = calculateStudentGrade(student.entryYear, student.entryLevel, currentAcademicYear);
@@ -272,8 +294,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
       const fullName = `${student.title || ''}${student.firstName} ${student.lastName}`.toLowerCase();
       const idMatch = (student.id || '').includes(searchQuery.trim());
       const nameMatch = fullName.includes(searchQuery.toLowerCase().trim());
+      const dormInfo = studentDormMap.get(student.id);
+      const dormMatch = (dormInfo?.dormName || '').toLowerCase().includes(searchQuery.toLowerCase().trim());
       
-      if (searchQuery.trim() && !idMatch && !nameMatch) return false;
+      if (searchQuery.trim() && !idMatch && !nameMatch && !dormMatch) return false;
       
       // 1. Filter by Level (มัธยมตอนต้น, มัธยมตอนปลาย)
       if (levelFilter !== 'ALL' && level !== levelFilter) return false;
@@ -288,7 +312,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
         }
       }
 
-      // 3. Filter by Score Category (วิกฤต, เฝ้าระวัง, ตักเตือน, ปกติ, ดีเด่น, ยอดเยี่ยม)
+      // 3. Filter by Dormitory (หอพัก)
+      if (dormitoryFilter !== 'ALL') {
+        if (dormitoryFilter === 'UNASSIGNED') {
+          if (dormInfo && dormInfo.dormId) return false;
+        } else {
+          if (!dormInfo || dormInfo.dormId !== dormitoryFilter) return false;
+        }
+      }
+
+      // 4. Filter by Score Category (วิกฤต, เฝ้าระวัง, ตักเตือน, ปกติ, ดีเด่น, ยอดเยี่ยม)
       if (scoreStatusFilter !== 'ALL') {
         const cat = getScoreCategory(student, systemSettings);
         if (cat.type !== scoreStatusFilter) return false;
@@ -311,6 +344,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
       } else if (sortField === 'name') {
         valA = `${a.firstName} ${a.lastName}`;
         valB = `${b.firstName} ${b.lastName}`;
+      } else if (sortField === 'dormitory') {
+        valA = studentDormMap.get(a.id)?.dormName || '';
+        valB = studentDormMap.get(b.id)?.dormName || '';
       } else if (sortField === 'status') {
         const rankMap: Record<string, number> = {
           CRITICAL: 1,
@@ -337,7 +373,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         ? String(valA).localeCompare(String(valB), 'th')
         : String(valB).localeCompare(String(valA), 'th');
     });
-  }, [activeStudents, searchQuery, levelFilter, classroomFilter, scoreStatusFilter, sortField, sortDirection, currentAcademicYear]);
+  }, [activeStudents, studentDormMap, searchQuery, levelFilter, classroomFilter, dormitoryFilter, scoreStatusFilter, sortField, sortDirection, currentAcademicYear]);
 
   // Paginated students slice
   const paginatedStudents = useMemo(() => {
@@ -858,7 +894,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </button>
             )}
 
-            {(levelFilter !== 'ALL' || classroomFilter !== 'ALL' || scoreStatusFilter !== 'ALL' || searchQuery.trim()) && (
+            {(levelFilter !== 'ALL' || classroomFilter !== 'ALL' || scoreStatusFilter !== 'ALL' || dormitoryFilter !== 'ALL' || searchQuery.trim()) && (
               <button
                 type="button"
                 onClick={() => {
@@ -866,6 +902,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   setLevelFilter('ALL');
                   setClassroomFilter('ALL');
                   setScoreStatusFilter('ALL');
+                  setDormitoryFilter('ALL');
                 }}
                 className="text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1"
               >
@@ -876,7 +913,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           {/* Filters Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 pt-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2 pt-1">
             {/* Search Input */}
             <div className="relative sm:col-span-2 lg:col-span-2">
               <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -884,7 +921,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="ค้นหารหัสประจำตัว หรือ ชื่อ-นามสกุล..."
+                placeholder="ค้นหารหัสประจำตัว, ชื่อ-นามสกุล หรือหอพัก..."
                 className="w-full pl-8 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
               />
             </div>
@@ -940,7 +977,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </optgroup>
             </select>
 
-            {/* 3. Score Category Filter: วิกฤต, เฝ้าระวัง, ตักเตือน, ปกติ, ดีเด่น, ยอดเยี่ยม */}
+            {/* 3. Dormitory Filter: หอพัก */}
+            <select
+              value={dormitoryFilter}
+              onChange={e => {
+                setDormitoryFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="text-xs py-2 px-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium cursor-pointer"
+            >
+              <option value="ALL">หอพัก: ทุกหอพัก</option>
+              {dormitories && dormitories.length > 0 && (
+                dormitories.map(d => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))
+              )}
+              <option value="UNASSIGNED">ยังไม่ระบุหอพัก</option>
+            </select>
+
+            {/* 4. Score Category Filter: วิกฤต, เฝ้าระวัง, ตักเตือน, ปกติ, ดีเด่น, ยอดเยี่ยม */}
             <ScoreStatusSelect
               value={scoreStatusFilter}
               onChange={setScoreStatusFilter}
@@ -949,7 +1006,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        {/* UNIFIED RESPONSIVE OVERVIEW TABLE (Displays รหัส, ชื่อ-สกุล, ชั้น, คะแนน by default, rest on expand) */}
+        {/* UNIFIED RESPONSIVE OVERVIEW TABLE (Displays รหัส, ชื่อ-สกุล, ชั้น, หอพัก, คะแนน by default, rest on expand) */}
         <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-2xs bg-white">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs sm:text-sm text-slate-700 border-collapse">
@@ -989,7 +1046,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       {getSortIcon('grade')}
                     </div>
                   </th>
-                  {/* 4. คะแนน */}
+                  {/* 4. หอพัก */}
+                  <th
+                    onClick={() => handleSort('dormitory')}
+                    className="py-3 px-2 sm:px-3 cursor-pointer hover:bg-slate-100 transition-colors text-center w-28 sm:w-36"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>หอพัก</span>
+                      {getSortIcon('dormitory')}
+                    </div>
+                  </th>
+                  {/* 5. คะแนน */}
                   <th
                     onClick={() => handleSort('currentScore')}
                     className="py-3 px-2.5 sm:px-3.5 cursor-pointer hover:bg-slate-100 transition-colors text-right w-24 sm:w-32"
@@ -1004,7 +1071,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <tbody className="divide-y divide-slate-100 bg-white">
                 {filteredStudents.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-10 text-center text-slate-400">
+                    <td colSpan={6} className="py-10 text-center text-slate-400">
                       <Search className="w-6 h-6 mx-auto mb-1.5 opacity-40" />
                       <p className="font-semibold text-slate-600">ไม่พบข้อมูลนักเรียนตามเงื่อนไข</p>
                       <p className="text-[11px] text-slate-400 mt-0.5">ลองปรับตัวกรองหรือคำค้นหาใหม่</p>
@@ -1021,7 +1088,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                     return (
                       <React.Fragment key={student.id}>
-                        {/* Master Row: รหัส, ชื่อ-สกุล, ชั้น, คะแนน */}
+                        {/* Master Row: รหัส, ชื่อ-สกุล, ชั้น, หอพัก, คะแนน */}
                         <tr
                           className={`transition-colors group cursor-pointer ${
                             isExpanded
@@ -1072,7 +1139,29 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             </span>
                           </td>
 
-                          {/* 4. คะแนน */}
+                          {/* 4. หอพัก */}
+                          <td className="py-3 px-2 sm:px-3 text-center text-xs">
+                            {(() => {
+                              const dorm = studentDormMap.get(student.id);
+                              if (!dorm || !dorm.dormName || dorm.dormName === 'ยังไม่ระบุ') {
+                                return <span className="text-slate-400 text-xs">-</span>;
+                              }
+                              return (
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-semibold text-[11px] border whitespace-nowrap ${
+                                  dorm.gender === 'M'
+                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                    : dorm.gender === 'F'
+                                    ? 'bg-pink-50 text-pink-700 border-pink-200'
+                                    : 'bg-purple-50 text-purple-700 border-purple-200'
+                                }`}>
+                                  <Building2 className="w-3 h-3 shrink-0 opacity-70" />
+                                  <span>{dorm.dormName}</span>
+                                </span>
+                              );
+                            })()}
+                          </td>
+
+                          {/* 5. คะแนน */}
                           <td className="py-3 px-2.5 sm:px-3.5 text-right font-mono">
                             <div className="flex items-center justify-end gap-1">
                               <span
@@ -1097,10 +1186,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           </td>
                         </tr>
 
-                        {/* Expandable Details Section (มองเห็นเมื่อขยายตาราง: รูป, ปีที่เข้า, ครูที่ปรึกษา, ประวัติหักคะแนน, แต้มสะสม, บันทึกคะแนนล่าสุด, ปุ่มจัดการ) */}
+                        {/* Expandable Details Section (มองเห็นเมื่อขยายตาราง: รูป, ปีที่เข้า, ครูที่ปรึกษา, หอพัก, ประวัติหักคะแนน, แต้มสะสม, บันทึกคะแนนล่าสุด, ปุ่มจัดการ) */}
                         {isExpanded && (
                           <tr className="bg-slate-50/95 border-y-2 border-indigo-200/80 animate-in fade-in duration-150">
-                            <td colSpan={5} className="p-3.5 sm:p-5">
+                            <td colSpan={6} className="p-3.5 sm:p-5">
                               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
                                 {/* Sub-Card 1: Student Profile & Photo Avatar from Drive */}
                                 <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-start gap-3.5">
@@ -1123,6 +1212,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     </div>
                                     <div className="text-[11px] text-slate-500 space-y-0.5 pt-0.5">
                                       <p>ปีที่เข้าศึกษา: <span className="font-semibold text-slate-700">{student.entryYear} ({student.entryLevel})</span></p>
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-slate-400">หอพัก:</span>
+                                        <span className="font-semibold text-indigo-700 inline-flex items-center gap-1">
+                                          <Building2 className="w-3 h-3 text-indigo-500 shrink-0" />
+                                          <span>{studentDormMap.get(student.id)?.dormName || 'ยังไม่ระบุ'}</span>
+                                        </span>
+                                      </div>
                                       {(() => {
                                         const stAdvisors = getStudentAdvisors(student, advisors, currentAcademicYear);
                                         return (

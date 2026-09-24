@@ -170,15 +170,14 @@ export const AddStudentModal: React.FC<AddStudentModalProps> = ({
       updatedAt: nowIso
     };
 
-    setIsSaving(true);
-    try {
-      await onSave(newStudent);
-      onClose();
-    } catch (err: any) {
-      setErrorMsg('เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + err.message);
-    } finally {
-      setIsSaving(false);
-    }
+    // ปิดกล่องรับข้อมูลทันทีเมื่อกดบันทึกข้อมูล
+    onClose();
+
+    // บันทึกข้อมูลนักเรียน (Optimistic state update & Background persistence)
+    onSave(newStudent).catch((err: any) => {
+      console.error('Error saving new student:', err);
+      alert('เกิดข้อผิดพลาดในการบันทึกข้อมูลนักเรียน: ' + (err?.message || ''));
+    });
   };
 
   return (

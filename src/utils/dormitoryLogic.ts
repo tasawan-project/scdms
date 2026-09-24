@@ -14,6 +14,18 @@ export function getDormitoryTypeName(type: DormitoryType | string): string {
   return 'หอพักทั่วไป';
 }
 
+export function cleanDormDisplayName(name?: string): string {
+  if (!name) return '';
+  return name
+    .replace(/\s*\(\s*ชาย\s*\(\s*M\s*\)\s*\)/gi, '')
+    .replace(/\s*\(\s*ชาย\(M\)\s*\)/gi, '')
+    .replace(/\s*\(ชาย\s*M\)/gi, '')
+    .replace(/\s*หอพักชาย\s*\(M\)/gi, '')
+    .replace(/\s*\(M\)/gi, '')
+    .replace(/\s*\(F\)/gi, '')
+    .trim();
+}
+
 export function getDormitoryTypeBadge(type: DormitoryType | string): {
   label: string;
   shortLabel: string;

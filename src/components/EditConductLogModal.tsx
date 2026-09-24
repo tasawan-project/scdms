@@ -211,7 +211,7 @@ export const EditConductLogModal: React.FC<EditConductLogModalProps> = ({
     };
   }, [log, student, allStudentLogs, type, numericPoints, category, behaviorTitle, reason, violationDate, notes, recordedBy, recordedAt, academicYear, term, maxBankedPoints]);
 
-  const handleSave = async (e?: React.FormEvent) => {
+  const handleSave = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (isSaving) return;
 
@@ -220,16 +220,14 @@ export const EditConductLogModal: React.FC<EditConductLogModalProps> = ({
       return;
     }
 
-    setIsSaving(true);
-    try {
-      await onSave(updatedEnrichedLog, simulatedUpdatedStudent);
-      onClose();
-    } catch (err: any) {
+    // ปิดกล่องรับข้อมูลทันทีเมื่อกดบันทึกข้อมูล
+    onClose();
+
+    // บันทึกการแก้ไขแบบทันใจ (Optimistic UI & Background persistence)
+    onSave(updatedEnrichedLog, simulatedUpdatedStudent).catch((err: any) => {
       console.error('Error saving edited log:', err);
-      alert('เกิดข้อผิดพลาดในการบันทึกการแก้ไข: ' + (err.message || 'กรุณาลองใหม่อีกครั้ง'));
-    } finally {
-      setIsSaving(false);
-    }
+      alert('เกิดข้อผิดพลาดในการบันทึกการแก้ไข: ' + (err?.message || 'กรุณาลองใหม่อีกครั้ง'));
+    });
   };
 
   return (

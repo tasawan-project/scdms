@@ -546,7 +546,7 @@ export default function App() {
     setCurrentView('HOME');
   };
 
-  // Conduct Action Handler
+  // Conduct Action Handler - Optimistic UI for instant responsiveness
   const handleConductSubmit = async (log: ConductLog, updatedStudent: Student) => {
     if (currentUser?.role === 'teacher') {
       console.warn('ผู้ใช้งาน Teacher (ระดับ 1) เป็นโหมดดูได้อย่างเดียว ไม่สามารถเพิ่มหรือตัดคะแนนพฤติกรรมได้');
@@ -559,40 +559,56 @@ export default function App() {
       recordedByName: recorder
     };
 
-    await recordConductLogTransaction(finalLog, updatedStudent);
-
+    // 1. อัปเดต State บนหน้าจอทันที ไม่ต้องรอผลลัพธ์เครือข่าย เพื่อความเร็วสูงสุด
     setStudents(prev => prev.map(s => (s.id === updatedStudent.id ? updatedStudent : s)));
     setConductLogs(prev => {
       const filtered = prev.filter(l => l.id !== finalLog.id);
       return [finalLog, ...filtered];
     });
+
+    // 2. บันทึกลง Firestore Transaction แบบเบื้องหลัง
+    try {
+      await recordConductLogTransaction(finalLog, updatedStudent);
+    } catch (err: any) {
+      console.error('Error persisting conduct log transaction:', err);
+    }
   };
 
-  // Edit Conduct Log Handler
+  // Edit Conduct Log Handler - Optimistic UI
   const handleEditConductLog = async (updatedLog: ConductLog, updatedStudent: Student) => {
     if (currentUser?.role === 'teacher') {
       console.warn('ผู้ใช้งาน Teacher (ระดับ 1) เป็นโหมดดูได้อย่างเดียว ไม่สามารถแก้ไขข้อมูลคะแนนพฤติกรรมได้');
       return;
     }
-    await updateConductLogTransaction(updatedLog, updatedStudent);
-
+    // อัปเดตทันที
     setStudents(prev => prev.map(s => (s.id === updatedStudent.id ? updatedStudent : s)));
     setConductLogs(prev => {
       const filtered = prev.filter(l => l.id !== updatedLog.id);
       return [updatedLog, ...filtered];
     });
+
+    try {
+      await updateConductLogTransaction(updatedLog, updatedStudent);
+    } catch (err: any) {
+      console.error('Error updating conduct log transaction:', err);
+    }
   };
 
-  // Delete Conduct Log Handler
+  // Delete Conduct Log Handler - Optimistic UI
   const handleDeleteConductLog = async (log: ConductLog, updatedStudent: Student) => {
     if (currentUser?.role === 'teacher') {
       console.warn('ผู้ใช้งาน Teacher (ระดับ 1) เป็นโหมดดูได้อย่างเดียว ไม่สามารถลบประวัติคะแนนพฤติกรรมได้');
       return;
     }
-    await deleteConductLogTransaction(log.id, updatedStudent);
-
+    // ลบทันทีบนหน้าจอ
     setStudents(prev => prev.map(s => (s.id === updatedStudent.id ? updatedStudent : s)));
     setConductLogs(prev => prev.filter(l => l.id !== log.id));
+
+    try {
+      await deleteConductLogTransaction(log.id, updatedStudent);
+    } catch (err: any) {
+      console.error('Error deleting conduct log transaction:', err);
+    }
   };
 
   // Bulk Student Import
@@ -661,9 +677,9 @@ export default function App() {
     return res;
   };
 
-  // Add / Create Single Student
+  // Add / Create Single Student - Optimistic UI
   const handleSaveNewStudent = async (newStudent: Student) => {
-    await saveStudentToDb(newStudent);
+    // 1. อัปเดตทันที
     setStudents(prev => {
       const exists = prev.some(s => s.id === newStudent.id);
       if (exists) {
@@ -673,19 +689,32 @@ export default function App() {
     });
     setShowAddStudentModal(false);
     setSelectedStudentId(newStudent.id);
+
+    // 2. บันทึกลงฐานข้อมูลแบบเบื้องหลัง
+    try {
+      await saveStudentToDb(newStudent);
+    } catch (err: any) {
+      console.error('Error saving student to db:', err);
+    }
   };
 
-  // Update Single Student
+  // Update Single Student - Optimistic UI
   const handleUpdateStudent = async (updatedStudent: Student) => {
-    await saveStudentToDb(updatedStudent);
+    // 1. อัปเดตทันที
     setStudents(prev => prev.map(s => (s.id === updatedStudent.id ? updatedStudent : s)));
     setEditingStudent(null);
+
+    // 2. บันทึกลงฐานข้อมูลแบบเบื้องหลัง
+    try {
+      await saveStudentToDb(updatedStudent);
+    } catch (err: any) {
+      console.error('Error updating student in db:', err);
+    }
   };
 
-  // Delete Single Student & Associated Conduct Logs
+  // Delete Single Student & Associated Conduct Logs - Optimistic UI
   const handleDeleteStudent = async (studentId: string) => {
-    await deleteStudentFromDb(studentId);
-    await deleteStudentConductLogs(studentId);
+    // 1. ลบทันที
     setStudents(prev => prev.filter(s => s.id !== studentId));
     setConductLogs(prev => prev.filter(l => l.studentId !== studentId));
     if (selectedStudentId === studentId) {
@@ -693,6 +722,14 @@ export default function App() {
     }
     if (editingStudent?.id === studentId) {
       setEditingStudent(null);
+    }
+
+    // 2. ดำเนินการลบในฐานข้อมูลแบบเบื้องหลัง
+    try {
+      await deleteStudentFromDb(studentId);
+      await deleteStudentConductLogs(studentId);
+    } catch (err: any) {
+      console.error('Error deleting student from db:', err);
     }
   };
 
@@ -886,9 +923,9 @@ export default function App() {
     return await syncClassroomAdvisorToStudents(gradeLevel, room, systemSettings.currentAcademicYear, advisorName);
   };
 
-  // Dormitory Management Handlers
+  // Dormitory Management Handlers - Optimistic UI
   const handleSaveDormitory = async (dormitory: Dormitory) => {
-    await saveDormitory(dormitory);
+    // 1. อัปเดตทันที
     setDormitories(prev => {
       const idx = prev.findIndex(d => d.id === dormitory.id);
       if (idx >= 0) {
@@ -898,11 +935,25 @@ export default function App() {
       }
       return [...prev, dormitory];
     });
+
+    // 2. บันทึกลงฐานข้อมูลแบบเบื้องหลัง
+    try {
+      await saveDormitory(dormitory);
+    } catch (err: any) {
+      console.error('Error saving dormitory:', err);
+    }
   };
 
   const handleDeleteDormitory = async (dormId: string) => {
-    await deleteDormitory(dormId);
+    // 1. ลบทันที
     setDormitories(prev => prev.filter(d => d.id !== dormId));
+
+    // 2. ลบในฐานข้อมูลแบบเบื้องหลัง
+    try {
+      await deleteDormitory(dormId);
+    } catch (err: any) {
+      console.error('Error deleting dormitory:', err);
+    }
   };
 
   const handleBatchSaveDormitories = async (dorms: Dormitory[]) => {
@@ -979,9 +1030,9 @@ export default function App() {
     setDormitories(DEFAULT_DORMITORIES);
   };
 
-  // Standard Conduct Behavior Handlers
+  // Standard Conduct Behavior Handlers - Optimistic UI
   const handleSaveStandardBehavior = async (behavior: StandardConductBehavior) => {
-    await saveStandardBehavior(behavior);
+    // 1. อัปเดตทันที
     setStandardBehaviors(prev => {
       const idx = prev.findIndex(b => b.id === behavior.id);
       if (idx >= 0) {
@@ -991,11 +1042,25 @@ export default function App() {
       }
       return [...prev, behavior];
     });
+
+    // 2. บันทึกลงฐานข้อมูลแบบเบื้องหลัง
+    try {
+      await saveStandardBehavior(behavior);
+    } catch (err: any) {
+      console.error('Error saving standard behavior:', err);
+    }
   };
 
   const handleDeleteStandardBehavior = async (behaviorId: string) => {
-    await deleteStandardBehavior(behaviorId);
+    // 1. ลบทันที
     setStandardBehaviors(prev => prev.filter(b => b.id !== behaviorId));
+
+    // 2. ลบในฐานข้อมูลแบบเบื้องหลัง
+    try {
+      await deleteStandardBehavior(behaviorId);
+    } catch (err: any) {
+      console.error('Error deleting standard behavior:', err);
+    }
   };
 
   const handleBatchSaveStandardBehaviors = async (behaviorsToSave: StandardConductBehavior[]) => {
@@ -1286,6 +1351,7 @@ export default function App() {
               systemSettings={systemSettings}
               currentAcademicYear={systemSettings.currentAcademicYear}
               currentTerm={systemSettings.currentTerm}
+              dormitories={dormitories}
               onNavigate={handleChangeView}
               onSelectStudent={handleSelectStudent}
               onStudentAuthorizedView={handleStudentAuthorizedView}
@@ -1299,6 +1365,7 @@ export default function App() {
               students={students}
               currentAcademicYear={systemSettings.currentAcademicYear}
               systemSettings={systemSettings}
+              dormitories={dormitories}
               onClose={() => setCurrentView(currentUser?.role !== 'student' ? 'DASHBOARD' : 'LOOKUP')}
               onSelectStudent={handleSelectStudent}
             />
@@ -1318,6 +1385,7 @@ export default function App() {
               advisors={advisors}
               standardBehaviors={standardBehaviors}
               currentUser={currentUser}
+              dormitories={dormitories}
               activeReportTab={getActiveReportTabFromView(currentView)}
               onChangeReportTab={(tab) => {
                 switch (tab) {
@@ -1648,6 +1716,7 @@ export default function App() {
               studentGrant={studentGrant}
               systemSettings={systemSettings}
               advisors={advisors}
+              dormitories={dormitories}
               viewMode={currentView === 'STUDENT_LIST' ? 'STUDENT_LIST' : 'OVERVIEW'}
               onSelectStudent={handleSelectStudent}
               onOpenConductAction={(student, defaultType) => {

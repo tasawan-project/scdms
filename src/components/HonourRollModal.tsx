@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Student, SystemSettings } from '../types';
+import { Student, SystemSettings, Dormitory } from '../types';
 import { calculateStudentGrade, getScoreCategory } from '../utils/conductLogic';
+import { matchStudentToDormitory } from '../utils/dormitoryLogic';
 import { StudentAvatar } from './StudentAvatar';
 import { Pagination } from './Pagination';
 import {
@@ -10,7 +11,8 @@ import {
   ShieldCheck,
   Download,
   Layers,
-  Sparkles
+  Sparkles,
+  Building2
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -19,6 +21,7 @@ interface HonourRollModalProps {
   currentAcademicYear: number;
   isPage?: boolean;
   systemSettings?: SystemSettings;
+  dormitories?: Dormitory[];
   onClose: () => void;
   onSelectStudent: (studentId: string) => void;
 }
@@ -28,6 +31,7 @@ export const HonourRollModal: React.FC<HonourRollModalProps> = ({
   currentAcademicYear,
   isPage = false,
   systemSettings,
+  dormitories = [],
   onClose,
   onSelectStudent
 }) => {
@@ -35,6 +39,22 @@ export const HonourRollModal: React.FC<HonourRollModalProps> = ({
   const [categoryFilter, setCategoryFilter] = useState<'ALL' | 'EXCELLENT' | 'OUTSTANDING'>('ALL');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(25);
+
+  // Map student ID to resolved dormitory information
+  const studentDormMap = useMemo(() => {
+    const map = new Map<string, { dormId?: string; dormName: string; gender: 'M' | 'F' }>();
+    (students || []).forEach(s => {
+      if (!s) return;
+      const matched = matchStudentToDormitory(s, dormitories || [], currentAcademicYear);
+      const dormName = s.dormitoryName || matched.dormitory?.name || '';
+      map.set(s.id, {
+        dormId: s.dormitoryId || matched.dormitory?.id,
+        dormName: dormName || '-',
+        gender: s.gender || matched.gender
+      });
+    });
+    return map;
+  }, [students, dormitories, currentAcademicYear]);
 
   // Reset page on filter change
   useEffect(() => {
@@ -92,6 +112,7 @@ export const HonourRollModal: React.FC<HonourRollModalProps> = ({
         'ชื่อ-นามสกุล': `${s.title}${s.firstName} ${s.lastName}`,
         'ระดับ': g.level === 'JUNIOR' ? 'มัธยมตอนต้น' : 'มัธยมตอนปลาย',
         'ชั้น/ห้อง': `${g.grade}/${s.room}`,
+        'หอพัก': studentDormMap.get(s.id)?.dormName || '-',
         'ปีที่เข้าศึกษา': s.entryYear,
         'คะแนนความประพฤติ': s.currentScore,
         'คะแนนสะสมความดีสำรอง': s.bankedPoints || 0,
@@ -179,6 +200,13 @@ export const HonourRollModal: React.FC<HonourRollModalProps> = ({
                     </span>
                   )}
                 </div>
+
+                {studentDormMap.get(student.id)?.dormName && studentDormMap.get(student.id)?.dormName !== '-' && (
+                  <div className="text-[10px] text-indigo-700 font-semibold flex items-center gap-1 mt-0.5">
+                    <Building2 className="w-2.5 h-2.5 text-indigo-500 shrink-0" />
+                    <span className="truncate">{studentDormMap.get(student.id)?.dormName}</span>
+                  </div>
+                )}
 
                 <div className="text-[10px] text-slate-500 mt-0.5 truncate flex items-center gap-1">
                   {isExcellent ? (

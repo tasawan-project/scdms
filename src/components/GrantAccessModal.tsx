@@ -72,16 +72,14 @@ export const GrantAccessModal: React.FC<GrantAccessModalProps> = ({
       notes: notes.trim() || undefined
     };
 
+    // ปิดกล่องรับข้อมูลทันทีเมื่อกดบันทึกข้อมูล
+    onClose();
+
     try {
-      if (onGrantAccess) await onGrantAccess(grant);
-      if (onGrantSuccess) await onGrantSuccess(grant);
-      setSuccessMsg(true);
-      setTimeout(() => {
-        onClose();
-      }, 1000);
+      if (onGrantAccess) onGrantAccess(grant);
+      if (onGrantSuccess) onGrantSuccess(grant);
     } catch (err) {
       console.error(err);
-      setIsSubmitting(false);
     }
   };
 

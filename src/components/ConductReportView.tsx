@@ -7,9 +7,11 @@ import {
   AppUser,
   HomeroomAdvisor,
   StandardConductBehavior,
-  GradeLevel
+  GradeLevel,
+  Dormitory
 } from '../types';
 import { calculateStudentGrade, getScoreCategory, getStudentAdvisors } from '../utils/conductLogic';
+import { matchStudentToDormitory } from '../utils/dormitoryLogic';
 import * as XLSX from 'xlsx';
 import {
   Printer,
@@ -53,6 +55,7 @@ interface ConductReportViewProps {
   advisors: HomeroomAdvisor[];
   standardBehaviors: StandardConductBehavior[];
   currentUser: AppUser | null;
+  dormitories?: Dormitory[];
   activeReportTab?: ConductReportTab;
   onChangeReportTab?: (tab: ConductReportTab) => void;
   onSelectStudent?: (studentId: string) => void;
@@ -68,11 +71,28 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
   advisors,
   standardBehaviors,
   currentUser,
+  dormitories = [],
   activeReportTab,
   onChangeReportTab,
   onSelectStudent,
   onClose
 }) => {
+  // Map student ID to resolved dormitory information
+  const studentDormMap = useMemo(() => {
+    const map = new Map<string, { dormId?: string; dormName: string; gender: 'M' | 'F' }>();
+    (students || []).forEach(s => {
+      if (!s) return;
+      const matched = matchStudentToDormitory(s, dormitories || [], currentAcademicYear);
+      const dormName = s.dormitoryName || matched.dormitory?.name || '';
+      map.set(s.id, {
+        dormId: s.dormitoryId || matched.dormitory?.id,
+        dormName: dormName || '-',
+        gender: s.gender || matched.gender
+      });
+    });
+    return map;
+  }, [students, dormitories, currentAcademicYear]);
+
   // Active Tab (Controlled via sidebar/parent or fallback internal)
   const [activeTab, setActiveTab] = useState<ConductReportTab>(activeReportTab || 'INDIVIDUAL');
 
@@ -727,6 +747,7 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
           'ชื่อ-นามสกุล': `${s.title}${s.firstName} ${s.lastName}`,
           'ชั้น/ห้อง': `${g.grade}/${s.room}`,
           'เลขที่': s.number || '-',
+          'หอพัก': studentDormMap.get(s.id)?.dormName || '-',
           'คะแนนคงเหลือ': s.currentScore,
           'คะแนนสะสมสำรอง': s.bankedPoints || 0,
           'หักสะสม (แต้ม)': s.totalDeductedPoints || 0,
@@ -749,6 +770,7 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
           'ชื่อ-นามสกุล': `${s.title}${s.firstName} ${s.lastName}`,
           'ชั้น/ห้อง': `${g.grade}/${s.room}`,
           'เลขที่': s.number || '-',
+          'หอพัก': studentDormMap.get(s.id)?.dormName || '-',
           'คะแนนความประพฤติ': s.currentScore,
           'สถานะ': 'รักษาคะแนนเต็ม 100',
           'ครูที่ปรึกษา': getAdvisorNamesList(s).join('\n') || '-'
@@ -768,6 +790,7 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
           'ชื่อ-นามสกุล': `${s.title}${s.firstName} ${s.lastName}`,
           'ชั้น/ห้อง': `${g.grade}/${s.room}`,
           'เลขที่': s.number || '-',
+          'หอพัก': studentDormMap.get(s.id)?.dormName || '-',
           'คะแนนพื้นฐาน': s.currentScore,
           'คะแนนสะสมความดี': s.bankedPoints || 0,
           'คะแนนรวมสุทธิ': s.currentScore + (s.bankedPoints || 0),
@@ -1469,6 +1492,7 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
                       <th className="py-2.5 px-3">ชื่อ - นามสกุล</th>
                       <th className="py-2.5 px-3 text-center whitespace-nowrap">ชั้น/ห้อง</th>
                       <th className="py-2.5 px-3 text-center whitespace-nowrap">เลขที่</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap">หอพัก</th>
                       <th className="py-2.5 px-3 text-center whitespace-nowrap">คะแนนคงเหลือ</th>
                       <th className="py-2.5 px-3 text-center whitespace-nowrap">คะแนนสำรอง</th>
                       <th className="py-2.5 px-3 text-center whitespace-nowrap">หักสะสม</th>
@@ -1495,6 +1519,11 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
                             {g.grade}/{st.room}
                           </td>
                           <td className="py-2 px-3 text-center font-mono text-slate-600">{st.number || '-'}</td>
+                          <td className="py-2 px-3 text-center whitespace-nowrap text-xs">
+                            <span className="font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
+                              {studentDormMap.get(st.id)?.dormName || '-'}
+                            </span>
+                          </td>
                           <td className="py-2 px-3 text-center font-black font-mono">
                             <span className={
                               st.currentScore >= 100
@@ -1620,6 +1649,7 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
                       <th className="py-2.5 px-3">ชื่อ - นามสกุล</th>
                       <th className="py-2.5 px-3 text-center whitespace-nowrap">ระดับชั้น/ห้อง</th>
                       <th className="py-2.5 px-3 text-center whitespace-nowrap">เลขที่</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap">หอพัก</th>
                       <th className="py-2.5 px-3 text-center whitespace-nowrap">คะแนนความประพฤติ</th>
                       <th className="py-2.5 px-3 text-center whitespace-nowrap">สถานะมาตรฐาน</th>
                       <th className="py-2.5 px-3 whitespace-nowrap">ครูที่ปรึกษา</th>
@@ -1643,6 +1673,11 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
                             {g.grade}/{st.room}
                           </td>
                           <td className="py-2 px-3 text-center font-mono text-slate-600">{st.number || '-'}</td>
+                          <td className="py-2 px-3 text-center whitespace-nowrap text-xs">
+                            <span className="font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
+                              {studentDormMap.get(st.id)?.dormName || '-'}
+                            </span>
+                          </td>
                           <td className="py-2 px-3 text-center font-mono font-black text-emerald-600">
                             100
                           </td>
@@ -1792,6 +1827,7 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
                       <th className="py-2.5 px-3">ชื่อ - นามสกุล</th>
                       <th className="py-2.5 px-3 text-center whitespace-nowrap">ชั้น/ห้อง</th>
                       <th className="py-2.5 px-3 text-center whitespace-nowrap">เลขที่</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap">หอพัก</th>
                       <th className="py-2.5 px-3 text-center whitespace-nowrap">คะแนนพื้นฐาน</th>
                       <th className="py-2.5 px-3 text-center whitespace-nowrap">คะแนนความดีสำรอง</th>
                       <th className="py-2.5 px-3 text-center whitespace-nowrap">รวมคะแนนสุทธิ</th>
@@ -1820,6 +1856,11 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
                             {g.grade}/{st.room}
                           </td>
                           <td className="py-2 px-3 text-center font-mono text-slate-600">{st.number || '-'}</td>
+                          <td className="py-2 px-3 text-center whitespace-nowrap text-xs">
+                            <span className="font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
+                              {studentDormMap.get(st.id)?.dormName || '-'}
+                            </span>
+                          </td>
                           <td className="py-2 px-3 text-center font-mono text-slate-700">100</td>
                           <td className="py-2 px-3 text-center font-mono font-black text-purple-700 whitespace-nowrap">
                             +{st.bankedPoints || 0} แต้ม

@@ -1004,10 +1004,10 @@ export const AdvisorManagementView: React.FC<AdvisorManagementViewProps> = ({
             setEditingAdvisor(null);
           }}
           onSave={async (savedAdvisor, syncToStudents) => {
-            await onSaveAdvisor(savedAdvisor, syncToStudents);
             setIsAddEditModalOpen(false);
             setEditingAdvisor(null);
             showToast(`บันทึกข้อมูลครูที่ปรึกษา ${savedAdvisor.fullName} เรียบร้อยแล้ว`, 'success');
+            await onSaveAdvisor(savedAdvisor, syncToStudents);
           }}
         />
       )}
@@ -1311,7 +1311,10 @@ const AddEditAdvisorModal: React.FC<AddEditAdvisorModalProps> = ({
         updatedAt: new Date().toISOString()
       };
 
-      await onSave(updatedAdvisor, syncToStudents);
+      onClose();
+      onSave(updatedAdvisor, syncToStudents).catch((err: any) => {
+        console.error('Error saving advisor in background:', err);
+      });
     } catch (err: any) {
       setErrorMsg('เกิดข้อผิดพลาด: ' + err.message);
       setIsSubmitting(false);

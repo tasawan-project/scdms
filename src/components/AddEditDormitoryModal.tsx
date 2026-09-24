@@ -256,8 +256,14 @@ export const AddEditDormitoryModal: React.FC<AddEditDormitoryModalProps> = ({
         updatedAt: new Date().toISOString()
       };
 
-      await onSave(updatedDorm);
+      // ปิดกล่องรับข้อมูลทันทีเมื่อกดบันทึกข้อมูล
       onClose();
+
+      // บันทึกข้อมูลหอพักแบบเบื้องหลัง
+      onSave(updatedDorm).catch((err: any) => {
+        console.error('Error saving dormitory:', err);
+        alert('เกิดข้อผิดพลาดในการบันทึกข้อมูลหอพัก: ' + (err?.message || ''));
+      });
     } catch (err: any) {
       setErrors({ form: 'เกิดข้อผิดพลาดในการบันทึก: ' + err.message });
     } finally {
@@ -265,22 +271,21 @@ export const AddEditDormitoryModal: React.FC<AddEditDormitoryModalProps> = ({
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!dormitory || !onDelete) return;
     if (
       window.confirm(
         `คุณแน่ใจหรือไม่ว่าต้องการลบ "${dormitory.name}" ออกจากระบบ? นักเรียนที่เคยผูกกับหอพักนี้จะถูกปลดออก`
       )
     ) {
-      try {
-        setIsDeleting(true);
-        await onDelete(dormitory.id);
-        onClose();
-      } catch (err: any) {
-        alert('เกิดข้อผิดพลาดในการลบ: ' + err.message);
-      } finally {
-        setIsDeleting(false);
-      }
+      // ปิดกล่องรับข้อมูลทันที
+      onClose();
+
+      // ดำเนินการลบแบบเบื้องหลัง
+      onDelete(dormitory.id).catch((err: any) => {
+        console.error('Error deleting dormitory:', err);
+        alert('เกิดข้อผิดพลาดในการลบ: ' + (err?.message || ''));
+      });
     }
   };
 

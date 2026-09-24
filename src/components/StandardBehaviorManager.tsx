@@ -134,7 +134,6 @@ export const StandardBehaviorManager: React.FC<StandardBehaviorManagerProps> = (
       return;
     }
 
-    setIsSaving(true);
     try {
       const id = editingId || `bhv-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
       const newBehavior: StandardConductBehavior = {
@@ -149,13 +148,19 @@ export const StandardBehaviorManager: React.FC<StandardBehaviorManagerProps> = (
         updatedAt: new Date().toISOString()
       };
 
-      await onSaveBehavior(newBehavior);
+      // ปิดกล่องรับข้อมูลทันทีเมื่อกดบันทึกข้อมูล
       setIsFormOpen(false);
       showNotification(editingId ? 'แก้ไขพฤติกรรมมาตรฐานสำเร็จ' : 'เพิ่มพฤติกรรมมาตรฐานใหม่ลงฐานข้อมูลสำเร็จ');
 
       if (isSelectMode && onSelectBehavior) {
         onSelectBehavior(newBehavior);
       }
+
+      // บันทึกลงฐานข้อมูลแบบเบื้องหลัง
+      onSaveBehavior(newBehavior).catch((err: any) => {
+        console.error('Error saving behavior:', err);
+        alert('เกิดข้อผิดพลาดในการบันทึก: ' + (err?.message || ''));
+      });
     } catch (err: any) {
       console.error('Error saving behavior:', err);
       alert('เกิดข้อผิดพลาดในการบันทึก: ' + (err.message || ''));
@@ -166,16 +171,15 @@ export const StandardBehaviorManager: React.FC<StandardBehaviorManagerProps> = (
 
   const handleDelete = async () => {
     if (!deletingBehavior) return;
-    setIsDeleting(true);
+    const targetBehavior = deletingBehavior;
+    setDeletingBehavior(null);
+    showNotification(`ลบ "${targetBehavior.title}" ออกจากฐานข้อมูลเรียบร้อยแล้ว`);
+
     try {
-      await onDeleteBehavior(deletingBehavior.id);
-      showNotification(`ลบ "${deletingBehavior.title}" ออกจากฐานข้อมูลเรียบร้อยแล้ว`);
-      setDeletingBehavior(null);
+      await onDeleteBehavior(targetBehavior.id);
     } catch (err: any) {
       console.error('Error deleting behavior:', err);
       alert('เกิดข้อผิดพลาดในการลบ: ' + (err.message || ''));
-    } finally {
-      setIsDeleting(false);
     }
   };
 

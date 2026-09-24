@@ -78,15 +78,23 @@ export const AddEditDormitoryTeacherModal: React.FC<AddEditDormitoryTeacherModal
 
     try {
       const teacherId = teacher?.id || `sup-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-      await onSave({
+      const teacherData = {
         id: teacherId,
         name: trimmedName,
         phone: phone.trim() || undefined,
         role: role.trim() || 'ครูหอพักประจำ',
         dormitoryId,
         previousDormitoryId: teacher?.dormitoryId
-      });
+      };
+
+      // ปิดกล่องรับข้อมูลทันทีเมื่อกดบันทึกข้อมูล
       onClose();
+
+      // บันทึกข้อมูลครูหอพักแบบเบื้องหลัง
+      onSave(teacherData).catch((err: any) => {
+        console.error('Error saving dormitory teacher:', err);
+        alert('เกิดข้อผิดพลาดในการบันทึกข้อมูลครูหอพัก: ' + (err?.message || ''));
+      });
     } catch (err: any) {
       setError(err?.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล');
     } finally {

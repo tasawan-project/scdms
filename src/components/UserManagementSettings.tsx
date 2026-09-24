@@ -275,23 +275,24 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({
       createdAt: editingUser ? editingUser.createdAt : new Date().toISOString()
     };
 
-    try {
-      await onSaveUser(userObj);
-      setUserOperationMsg({
-        type: 'success',
-        text: editingUser
-          ? `บันทึกการแก้ไขข้อมูล "${userObj.name}" เรียบร้อยแล้ว (บันทึกถาวรเรียบร้อย)`
-          : `เพิ่มผู้ใช้งานใหม่ "${userObj.name}" สำเร็จ (บันทึกถาวรในระบบแล้ว ไม่หายเมื่อรีเฟรช)`
-      });
-      setShowAddUserModal(false);
-      setEditingUser(null);
-      setNewUsername('');
-      setNewPassword('');
-      setNewName('');
-      setNewDepartment('');
-    } catch (err: any) {
+    // ปิดกล่องรับข้อมูลทันทีเมื่อกดบันทึกข้อมูล
+    setShowAddUserModal(false);
+    setEditingUser(null);
+    setNewUsername('');
+    setNewPassword('');
+    setNewName('');
+    setNewDepartment('');
+    setUserOperationMsg({
+      type: 'success',
+      text: editingUser
+        ? `บันทึกการแก้ไขข้อมูล "${userObj.name}" เรียบร้อยแล้ว`
+        : `เพิ่มผู้ใช้งานใหม่ "${userObj.name}" สำเร็จ`
+    });
+
+    // ดำเนินการบันทึกแบบเบื้องหลัง
+    onSaveUser(userObj).catch((err: any) => {
       setUserOperationMsg({ type: 'error', text: err?.message || 'เกิดข้อผิดพลาดในการบันทึกผู้ใช้' });
-    }
+    });
   };
 
   const handleDeleteUserClick = (user: AppUser) => {

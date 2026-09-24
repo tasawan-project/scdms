@@ -6,7 +6,8 @@ import {
   AppUser,
   SystemSettings,
   AppView,
-  ScoreCategoryType
+  ScoreCategoryType,
+  Dormitory
 } from '../types';
 import {
   ClipboardCheck,
@@ -28,13 +29,15 @@ import {
   ShieldAlert,
   Info,
   RefreshCw,
-  Eye
+  Eye,
+  Building2
 } from 'lucide-react';
 import { StudentAvatar } from './StudentAvatar';
 import {
   calculateStudentGrade,
   getScoreCategory
 } from '../utils/conductLogic';
+import { matchStudentToDormitory } from '../utils/dormitoryLogic';
 
 interface ScoreCheckViewProps {
   students: Student[];
@@ -45,6 +48,7 @@ interface ScoreCheckViewProps {
   systemSettings: SystemSettings;
   currentAcademicYear: number;
   currentTerm: number;
+  dormitories?: Dormitory[];
   onNavigate: (view: AppView) => void;
   onSelectStudent: (studentId: string) => void;
   onStudentAuthorizedView?: (student: Student, grant: StudentAccessGrant) => void;
@@ -62,6 +66,7 @@ export const ScoreCheckView: React.FC<ScoreCheckViewProps> = ({
   systemSettings,
   currentAcademicYear,
   currentTerm,
+  dormitories = [],
   onNavigate,
   onSelectStudent,
   onStudentAuthorizedView,
@@ -74,6 +79,22 @@ export const ScoreCheckView: React.FC<ScoreCheckViewProps> = ({
   const [isTogglingAccess, setIsTogglingAccess] = useState(false);
   const [isBatchGranting, setIsBatchGranting] = useState(false);
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
+
+  // Map student ID to resolved dormitory information
+  const studentDormMap = useMemo(() => {
+    const map = new Map<string, { dormId?: string; dormName: string; gender: 'M' | 'F' }>();
+    (students || []).forEach(s => {
+      if (!s) return;
+      const matched = matchStudentToDormitory(s, dormitories || [], currentAcademicYear);
+      const dormName = s.dormitoryName || matched.dormitory?.name || '';
+      map.set(s.id, {
+        dormId: s.dormitoryId || matched.dormitory?.id,
+        dormName: dormName || 'ยังไม่ระบุ',
+        gender: s.gender || matched.gender
+      });
+    });
+    return map;
+  }, [students, dormitories, currentAcademicYear]);
 
   // Determine if current user is Admin or Staff (only these roles can grant all-students access)
   const canManageAllGrants = currentUser?.role === 'admin' || currentUser?.role === 'staff';
@@ -614,6 +635,10 @@ export const ScoreCheckView: React.FC<ScoreCheckViewProps> = ({
                           <span>ชั้น {grade}/{student.room}</span>
                           {student.number && <span>เลขที่ {student.number}</span>}
                           <span>ครูที่ปรึกษา: <span className="font-semibold text-slate-800">{advisorDisplay}</span></span>
+                          <span className="font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100 inline-flex items-center gap-1">
+                            <Building2 className="w-3 h-3 text-indigo-500" />
+                            <span>หอพัก: {studentDormMap.get(student.id)?.dormName || 'ยังไม่ระบุ'}</span>
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -791,6 +816,12 @@ export const ScoreCheckView: React.FC<ScoreCheckViewProps> = ({
                         <div className="text-[11px] text-slate-500">
                           ม.{grade}/{st.room} {st.number ? `(เลขที่ ${st.number})` : ''}
                         </div>
+                        {studentDormMap.get(st.id)?.dormName && studentDormMap.get(st.id)?.dormName !== 'ยังไม่ระบุ' && (
+                          <div className="text-[10px] text-indigo-700 font-semibold flex items-center gap-1 mt-0.5">
+                            <Building2 className="w-2.5 h-2.5 text-indigo-500 shrink-0" />
+                            <span className="truncate">{studentDormMap.get(st.id)?.dormName}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 

@@ -23,6 +23,15 @@ import {
 import { StudentAvatar } from './StudentAvatar';
 import { Pagination } from './Pagination';
 import {
+  DormitoryStudentsPrintModal,
+  sortStudentsByGradeRoomAndNumber,
+  generateDormitoryReportHtml,
+  openDormitoryReportInNewTab,
+  formatDormitoryReportTitle,
+  formatDormitorySupervisorsText
+} from './DormitoryStudentsPrintModal';
+import { THAI_MONTHS_FULL } from '../utils/thaiDate';
+import {
   Building2,
   Users,
   Search,
@@ -101,6 +110,7 @@ export const DormitoryStudentsView: React.FC<DormitoryStudentsViewProps> = ({
   // Active filter states
   const [selectedDormFilter, setSelectedDormFilter] = useState<string>(initialDormId || 'ALL'); // 'ALL' | 'UNASSIGNED' | dormId
   const [showClearModal, setShowClearModal] = useState<boolean>(false);
+  const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
   const [isClearing, setIsClearing] = useState<boolean>(false);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [batchTargetDormId, setBatchTargetDormId] = useState<string>('');
@@ -193,7 +203,7 @@ export const DormitoryStudentsView: React.FC<DormitoryStudentsViewProps> = ({
 
   // Filtered students list
   const filteredStudents = useMemo(() => {
-    return activeStudents.filter(st => {
+    const result = activeStudents.filter(st => {
       // 1. Dormitory filter
       if (selectedDormFilter === 'UNASSIGNED') {
         if (st.dormitoryId) return false;
@@ -236,6 +246,9 @@ export const DormitoryStudentsView: React.FC<DormitoryStudentsViewProps> = ({
 
       return true;
     });
+
+    // เรียงข้อมูล ชั้น/ห้อง และ เลขที่ จาก น้อย ไปหามาก
+    return sortStudentsByGradeRoomAndNumber(result, currentAcademicYear);
   }, [
     activeStudents,
     selectedDormFilter,
@@ -350,7 +363,45 @@ export const DormitoryStudentsView: React.FC<DormitoryStudentsViewProps> = ({
   };
 
   const handlePrint = () => {
-    window.print();
+    // กำหนดชื่อหัวกระดาษและครูผู้ดูแลตามหอพักและผลการค้นหา
+    const targetDorm = selectedDormFilter && selectedDormFilter !== 'ALL' && selectedDormFilter !== 'UNASSIGNED'
+      ? activeDorms.find(d => d.id === selectedDormFilter) || null
+      : (Array.from(new Set(filteredStudents.map(s => s.dormitoryId).filter(Boolean))).length === 1
+          ? activeDorms.find(d => d.id === filteredStudents[0]?.dormitoryId) || null
+          : null);
+
+    const dormTitle = selectedDormFilter === 'UNASSIGNED'
+      ? 'คะแนนความประพฤตินักเรียน (ยังไม่ได้จัดหอพัก)'
+      : formatDormitoryReportTitle(targetDorm);
+
+    const supervisorText = selectedDormFilter === 'UNASSIGNED'
+      ? 'ครูหอพักผู้ดูแล: -'
+      : (targetDorm ? formatDormitorySupervisorsText(targetDorm) : 'ครูหอพักผู้ดูแล: ครูผู้ดูแลหอพักประจำสถานศึกษา');
+
+    const today = new Date();
+    const day = today.getDate();
+    const monthIdx = today.getMonth();
+    const thaiYear = today.getFullYear() + 543;
+    const thaiDateFormatted = `${day} ${THAI_MONTHS_FULL[monthIdx]} พ.ศ. ${thaiYear}`;
+
+    const sortedStudents = sortStudentsByGradeRoomAndNumber(filteredStudents, currentAcademicYear);
+
+    // สร้างเอกสาร HTML รูปแบบแนวตั้ง A4 พร้อมหัวกระดาษซ้ำทุกหน้า
+    const reportHtml = generateDormitoryReportHtml({
+      dormTitle,
+      supervisorText,
+      thaiDateFormatted,
+      students: sortedStudents,
+      currentAcademicYear,
+      rowsPerPage: 25
+    });
+
+    // เปิดในแท็บใหม่เพื่อให้ผู้ใช้ตรวจสอบและสั่งพิมพ์ผ่านหน้าเว็บ
+    const res = openDormitoryReportInNewTab(reportHtml);
+    if (!res.success) {
+      // หากเบราว์เซอร์บล็อก Popup ให้เปิด Modal สำรองเพื่อกดเปิดแท็บใหม่ได้โดยตรง
+      setShowPrintModal(true);
+    }
   };
 
   const handleClearAllDormitories = async () => {
@@ -473,15 +524,27 @@ export const DormitoryStudentsView: React.FC<DormitoryStudentsViewProps> = ({
               <span>ส่งออก Excel</span>
             </button>
 
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="px-3.5 py-2 text-xs font-bold rounded-xl bg-slate-800 hover:bg-slate-900 text-white shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
-              title="พิมพ์รายงานรายชื่อ"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              <span>พิมพ์รายชื่อ</span>
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="px-3.5 py-2 text-xs font-bold rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                title="เปิดรายงานในแท็บใหม่เพื่อสั่งพิมพ์ผ่านหน้าเว็บ"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>พิมพ์รายชื่อ (HTML แท็บใหม่)</span>
+                <ExternalLink className="w-3 h-3 text-blue-200" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowPrintModal(true)}
+                className="p-2 text-xs font-bold rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 transition-colors cursor-pointer shadow-2xs"
+                title="ดูตัวอย่างรายงาน / ตั้งค่าหน้าพิมพ์"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-600" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -873,7 +936,7 @@ export const DormitoryStudentsView: React.FC<DormitoryStudentsViewProps> = ({
                 <th className="py-3 px-3 text-center w-16">เลขที่</th>
                 <th className="py-3 px-3 min-w-[170px]">หอพักที่สังกัด</th>
                 <th className="py-3 px-3 min-w-[160px]">ครูผู้ดูแลหอพัก</th>
-                <th className="py-3 px-3 text-center min-w-[130px]">คะแนนความประพฤติ</th>
+                <th className="py-3 px-3 text-center min-w-[140px]">คะแนนคงเหลือ / ต้องแก้</th>
                 <th className="py-3 px-3 text-center w-28">จัดการ</th>
               </tr>
             </thead>
@@ -1031,11 +1094,20 @@ export const DormitoryStudentsView: React.FC<DormitoryStudentsViewProps> = ({
                       </td>
 
                       <td className="py-2.5 px-3 text-center">
-                        <span
-                          className={`px-2.5 py-1 rounded-full font-bold text-[11px] inline-flex items-center gap-1 ${cat.badgeClass}`}
-                        >
-                          <span>{st.currentScore ?? 100} แต้ม</span>
-                        </span>
+                        <div className="flex flex-col items-center gap-1">
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full font-bold text-[11px] inline-flex items-center gap-1 ${cat.badgeClass}`}
+                          >
+                            <span>คงเหลือ {st.currentScore ?? 100}</span>
+                          </span>
+                          {Math.max(0, 100 - (st.currentScore ?? 100)) > 0 ? (
+                            <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
+                              ต้องแก้ {Math.max(0, 100 - (st.currentScore ?? 100))} แต้ม
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 font-medium">ต้องแก้ 0 แต้ม</span>
+                          )}
+                        </div>
                       </td>
 
                       <td className="py-2.5 px-3 text-center">
@@ -1157,6 +1229,19 @@ export const DormitoryStudentsView: React.FC<DormitoryStudentsViewProps> = ({
           </div>
         </div>
       )}
+      {/* Print Report Modal (แนวตั้ง A4, พิมพ์ตามผลการค้นหาในตาราง, พิมพ์ซ้ำหัวกระดาษทุกหน้า) */}
+      <DormitoryStudentsPrintModal
+        isOpen={showPrintModal}
+        onClose={() => setShowPrintModal(false)}
+        dormitories={activeDorms}
+        displayedStudents={filteredStudents}
+        currentAcademicYear={currentAcademicYear}
+        selectedDormFilter={selectedDormFilter}
+        systemSettings={systemSettings}
+        searchQuery={searchQuery}
+        selectedGradeFilter={selectedGradeFilter}
+        selectedRoomFilter={selectedRoomFilter}
+      />
     </div>
   );
 };
