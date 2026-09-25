@@ -92,6 +92,11 @@ export const IndividualReportPrintModal: React.FC<IndividualReportPrintModalProp
       const noPrints = contentClone.querySelectorAll('.no-print');
       noPrints.forEach(el => el.remove());
 
+      // Collect all parent stylesheets
+      const styleSheets = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
+        .map(el => el.outerHTML)
+        .join('\n');
+
       frameDoc.open();
       frameDoc.write(`
         <!DOCTYPE html>
@@ -102,67 +107,148 @@ export const IndividualReportPrintModal: React.FC<IndividualReportPrintModalProp
           <link rel="preconnect" href="https://fonts.googleapis.com">
           <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
           <link href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+          ${styleSheets}
           <style>
             @page {
               size: A4 portrait;
-              margin: 12mm 10mm 15mm 10mm;
+              margin: 10mm 10mm 12mm 10mm;
             }
             * {
               box-sizing: border-box;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
+              color-adjust: exact !important;
             }
-            body {
-              font-family: 'Sarabun', 'TH Sarabun New', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-              margin: 0;
-              padding: 0;
-              background: #ffffff;
-              color: #0f172a;
-              font-size: 10pt;
-              line-height: 1.45;
+            html, body {
+              font-family: 'Sarabun', 'TH Sarabun New', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              background: #ffffff !important;
+              color: #0f172a !important;
+              font-size: 10pt !important;
+              line-height: 1.45 !important;
             }
             .no-print {
               display: none !important;
             }
+            #individual-report-paper {
+              width: 100% !important;
+              max-width: 100% !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              border: none !important;
+              box-shadow: none !important;
+              background: #ffffff !important;
+            }
+            .report-bio-box {
+              border: 1px solid #94a3b8 !important;
+              border-radius: 8px !important;
+              padding: 12px 16px !important;
+              background-color: #f8fafc !important;
+              margin-bottom: 16px !important;
+            }
+            .report-bio-inner {
+              display: flex !important;
+              flex-direction: row !important;
+              align-items: center !important;
+              gap: 16px !important;
+            }
+            .report-photo-col {
+              width: 100px !important;
+              min-width: 100px !important;
+              flex-shrink: 0 !important;
+              text-align: center !important;
+            }
+            .report-details-col {
+              flex: 1 !important;
+              min-width: 0 !important;
+              display: flex !important;
+              flex-direction: column !important;
+              gap: 8px !important;
+            }
+            .report-details-grid {
+              display: grid !important;
+              grid-template-columns: repeat(2, 1fr) !important;
+              gap: 4px 16px !important;
+              border-bottom: 1px solid #e2e8f0 !important;
+              padding-bottom: 8px !important;
+              font-size: 12px !important;
+            }
+            .report-score-cards {
+              display: grid !important;
+              grid-template-columns: repeat(4, 1fr) !important;
+              gap: 8px !important;
+              padding-top: 2px !important;
+              text-align: center !important;
+            }
+            .score-card {
+              padding: 6px 4px !important;
+              background-color: #ffffff !important;
+              border: 1px solid #cbd5e1 !important;
+              border-radius: 6px !important;
+            }
+            .score-card-highlight {
+              padding: 6px 4px !important;
+              background-color: #eef2ff !important;
+              border: 2px solid #6366f1 !important;
+              border-radius: 6px !important;
+            }
             table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-top: 6px;
-              margin-bottom: 10px;
-              font-size: 9pt;
+              width: 100% !important;
+              border-collapse: collapse !important;
+              margin-top: 4px !important;
+              margin-bottom: 10px !important;
+              font-size: 10pt !important;
             }
             th, td {
-              border: 1px solid #64748b;
-              padding: 4px 6px;
-              text-align: left;
-              vertical-align: middle;
+              border: 1px solid #94a3b8 !important;
+              padding: 5px 6px !important;
+              text-align: left !important;
+              vertical-align: middle !important;
             }
             th {
               background-color: #f1f5f9 !important;
-              font-weight: 700;
-              color: #0f172a;
+              font-weight: 700 !important;
+              color: #0f172a !important;
             }
             tr {
-              page-break-inside: avoid;
+              page-break-inside: avoid !important;
             }
             thead {
-              display: table-header-group;
+              display: table-header-group !important;
             }
-            .text-center { text-align: center; }
-            .text-right { text-align: right; }
-            .text-left { text-align: left; }
-            .font-bold { font-weight: bold; }
-            img.school-logo, .school-logo, img[alt="School Logo"], img[alt="Logo"] {
-              width: 48px !important;
-              height: 48px !important;
-              max-width: 48px !important;
-              max-height: 48px !important;
+            .text-center { text-align: center !important; }
+            .text-right { text-align: right !important; }
+            .text-left { text-align: left !important; }
+            .font-bold { font-weight: bold !important; }
+            .school-logo-wrapper {
+              width: 42px !important;
+              height: 42px !important;
+              min-width: 42px !important;
+              min-height: 42px !important;
+              max-width: 42px !important;
+              max-height: 42px !important;
+              overflow: hidden !important;
+              flex-shrink: 0 !important;
+              display: flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+            }
+            img.school-logo, .school-logo, img[alt="School Logo"] {
+              width: 42px !important;
+              height: 42px !important;
+              min-width: 42px !important;
+              min-height: 42px !important;
+              max-width: 42px !important;
+              max-height: 42px !important;
               object-fit: contain !important;
-              display: inline-block !important;
+              display: block !important;
             }
             .student-photo-box {
               width: 96px !important;
               height: 124px !important;
+              min-width: 96px !important;
+              min-height: 124px !important;
               max-width: 96px !important;
               max-height: 124px !important;
               overflow: hidden !important;
@@ -170,25 +256,26 @@ export const IndividualReportPrintModal: React.FC<IndividualReportPrintModalProp
               display: flex !important;
               align-items: center !important;
               justify-content: center !important;
+              margin: 0 auto !important;
             }
             img.student-photo, .student-photo {
-              width: 96px !important;
-              height: 124px !important;
-              max-width: 96px !important;
-              max-height: 124px !important;
+              width: 100% !important;
+              height: 100% !important;
+              max-width: 100% !important;
+              max-height: 100% !important;
               object-fit: cover !important;
               display: block !important;
             }
           </style>
         </head>
         <body>
-          ${contentClone.innerHTML}
+          ${contentClone.outerHTML}
         </body>
         </html>
       `);
       frameDoc.close();
 
-      setTimeout(() => {
+      const triggerPrint = () => {
         setIsPrinting(false);
         setPrintSuccess(true);
         setTimeout(() => setPrintSuccess(false), 3000);
@@ -204,7 +291,35 @@ export const IndividualReportPrintModal: React.FC<IndividualReportPrintModalProp
             iframe.remove();
           } catch {}
         }, 4000);
-      }, 400);
+      };
+
+      // Ensure all images (logo & student photo) in iframe are fully loaded before printing
+      const imgs = frameDoc.images;
+      if (imgs && imgs.length > 0) {
+        let loaded = 0;
+        const total = imgs.length;
+        const checkDone = () => {
+          loaded++;
+          if (loaded >= total) {
+            setTimeout(triggerPrint, 150);
+          }
+        };
+        for (let i = 0; i < total; i++) {
+          if (imgs[i].complete) {
+            loaded++;
+          } else {
+            imgs[i].onload = checkDone;
+            imgs[i].onerror = checkDone;
+          }
+        }
+        if (loaded >= total) {
+          setTimeout(triggerPrint, 150);
+        } else {
+          setTimeout(triggerPrint, 1000); // Fallback timeout
+        }
+      } else {
+        setTimeout(triggerPrint, 200);
+      }
     } catch (e) {
       console.error('Print error:', e);
       setIsPrinting(false);
@@ -237,10 +352,10 @@ export const IndividualReportPrintModal: React.FC<IndividualReportPrintModalProp
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200">
-      <div className="relative bg-slate-100 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden my-auto">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200 individual-print-modal-container print:p-0 print:bg-white print:static print:overflow-visible">
+      <div className="relative bg-slate-100 rounded-2xl sm:rounded-3xl border border-slate-200 shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden my-auto print:max-w-full print:max-h-none print:shadow-none print:border-none print:bg-white print:overflow-visible">
         {/* Header Bar */}
-        <div className="bg-white px-5 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+        <div className="no-print bg-white px-5 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
               <FileText className="w-5 h-5" />
@@ -313,7 +428,7 @@ export const IndividualReportPrintModal: React.FC<IndividualReportPrintModalProp
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-200/70">
           <div className="max-w-[210mm] mx-auto space-y-4">
             {/* HTML Preview Bar Notice */}
-            <div className="bg-white/90 border border-slate-300 rounded-xl p-3 text-xs text-slate-600 flex items-center justify-between shadow-2xs gap-2 flex-wrap">
+            <div className="no-print bg-white/90 border border-slate-300 rounded-xl p-3 text-xs text-slate-600 flex items-center justify-between shadow-2xs gap-2 flex-wrap">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span>ตัวอย่างรูปแบบเอกสารจริง (Print Preview) ขนาด A4 พร้อมสั่งพิมพ์ได้ทันที</span>
@@ -336,7 +451,7 @@ export const IndividualReportPrintModal: React.FC<IndividualReportPrintModalProp
             />
 
             {/* Bottom Actions inside preview */}
-            <div className="pt-2 pb-6 flex items-center justify-center gap-3">
+            <div className="no-print pt-2 pb-6 flex items-center justify-center gap-3">
               <button
                 type="button"
                 onClick={handlePrint}

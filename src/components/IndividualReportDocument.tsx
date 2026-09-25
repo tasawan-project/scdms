@@ -9,7 +9,7 @@ import {
 import { calculateStudentGrade, getScoreCategory, getStudentAdvisors } from '../utils/conductLogic';
 import { matchStudentToDormitory } from '../utils/dormitoryLogic';
 import { formatThaiDate } from '../utils/thaiDate';
-import { School, CheckCircle2, ShieldCheck, User } from 'lucide-react';
+import { School, CheckCircle2, User } from 'lucide-react';
 
 interface IndividualReportDocumentProps {
   student: Student;
@@ -60,7 +60,7 @@ export const IndividualReportDocument: React.FC<IndividualReportDocumentProps> =
       {/* Visual A4 Paper Container with realistic sheet shadow on HTML preview */}
       <div
         id="individual-report-paper"
-        className="bg-white text-slate-900 border border-slate-300 shadow-xl rounded-sm p-6 sm:p-10 md:p-12 max-w-[210mm] mx-auto print:shadow-none print:border-none print:p-0 print:m-0 print:max-w-full print:rounded-none relative"
+        className="individual-report-container bg-white text-slate-900 border border-slate-300 shadow-xl rounded-sm p-6 sm:p-10 md:p-12 max-w-[210mm] mx-auto print:shadow-none print:border-none print:p-0 print:m-0 print:max-w-full print:rounded-none relative"
         style={{
           fontFamily: "'Sarabun', 'TH Sarabun New', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
         }}
@@ -74,49 +74,95 @@ export const IndividualReportDocument: React.FC<IndividualReportDocumentProps> =
         )}
 
         {/* 1. Official Header / Letterhead */}
-        <div className="text-center border-b-2 border-slate-800 pb-4 mb-5 space-y-1">
-          <div className="flex items-center justify-center gap-3.5 mb-1.5">
+        <div
+          className="report-header text-center border-b-2 border-slate-800 pb-3 mb-4"
+          style={{ borderBottom: '2px solid #0f172a', paddingBottom: '12px', marginBottom: '16px', textAlign: 'center' }}
+        >
+          <div
+            className="header-logo-row flex items-center justify-center gap-3.5 mb-1.5"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '14px', marginBottom: '6px' }}
+          >
             {systemSettings?.logoUrl ? (
-              <img
-                src={systemSettings.logoUrl}
-                alt="School Logo"
-                className="school-logo object-contain shrink-0"
-                style={{
-                  width: '48px',
-                  height: '48px',
-                  maxWidth: '48px',
-                  maxHeight: '48px',
-                  objectFit: 'contain',
-                  display: 'inline-block'
-                }}
-              />
-            ) : (
               <div
-                className="school-logo rounded-xl bg-slate-900 text-white flex items-center justify-center print:bg-black shrink-0"
+                className="school-logo-wrapper"
                 style={{
-                  width: '48px',
-                  height: '48px',
-                  minWidth: '48px',
-                  minHeight: '48px'
+                  width: '42px',
+                  height: '42px',
+                  minWidth: '42px',
+                  minHeight: '42px',
+                  maxWidth: '42px',
+                  maxHeight: '42px',
+                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden'
                 }}
               >
-                <School className="w-7 h-7" />
+                <img
+                  src={systemSettings.logoUrl}
+                  alt="School Logo"
+                  width={42}
+                  height={42}
+                  className="school-logo object-contain"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    maxWidth: '42px',
+                    maxHeight: '42px',
+                    objectFit: 'contain',
+                    display: 'block'
+                  }}
+                />
+              </div>
+            ) : (
+              <div
+                className="school-logo-wrapper"
+                style={{
+                  width: '42px',
+                  height: '42px',
+                  minWidth: '42px',
+                  minHeight: '42px',
+                  maxWidth: '42px',
+                  maxHeight: '42px',
+                  backgroundColor: '#0f172a',
+                  color: '#ffffff',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}
+              >
+                <School style={{ width: '22px', height: '22px' }} />
               </div>
             )}
-            <div className="text-left">
-              <h1 className="text-xl sm:text-2xl font-black text-slate-950 tracking-tight leading-tight">
+            <div className="text-left" style={{ textAlign: 'left' }}>
+              <h1
+                className="text-xl sm:text-2xl font-black text-slate-950 tracking-tight leading-tight m-0"
+                style={{ fontSize: '20px', fontWeight: 900, color: '#020617', margin: 0, lineHeight: 1.2 }}
+              >
                 {schoolName}
               </h1>
-              <p className="text-xs sm:text-sm font-semibold text-slate-700">
+              <p
+                className="text-xs sm:text-sm font-semibold text-slate-700 m-0"
+                style={{ fontSize: '13px', fontWeight: 600, color: '#334155', margin: 0 }}
+              >
                 ฝ่ายกิจการนักเรียนและกลุ่มงานส่งเสริมวินัยนักเรียน
               </p>
             </div>
           </div>
 
-          <h2 className="text-base sm:text-lg font-bold text-slate-900 pt-1 tracking-tight">
+          <h2
+            className="text-base sm:text-lg font-bold text-slate-900 tracking-tight m-0"
+            style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', margin: '4px 0 2px' }}
+          >
             ใบบันทึกคะแนนและรายงานความประพฤตินักเรียนรายบุคคล
           </h2>
-          <div className="text-xs text-slate-600 flex items-center justify-center gap-2 flex-wrap">
+          <div
+            className="text-xs text-slate-600 flex items-center justify-center gap-2 flex-wrap"
+            style={{ fontSize: '12px', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+          >
             <span>ประจำปีการศึกษา <strong>{currentAcademicYear}</strong></span>
             <span>•</span>
             <span>ภาคเรียนที่ <strong>{currentTerm}</strong></span>
@@ -125,20 +171,53 @@ export const IndividualReportDocument: React.FC<IndividualReportDocumentProps> =
           </div>
         </div>
 
-        {/* 2. Student Bio & Score Summary Box */}
-        <div className="border border-slate-400 rounded-lg p-3.5 sm:p-4 mb-5 bg-slate-50/50 print:bg-transparent">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-            {/* Student Photo */}
-            <div className="md:col-span-3 flex flex-col items-center justify-center text-center">
+        {/* 2. Student Bio & Score Summary Box (Guaranteed 2-column flex layout both in preview & print) */}
+        <div
+          className="report-bio-box border border-slate-400 rounded-lg p-3.5 sm:p-4 mb-4 bg-slate-50/70"
+          style={{
+            border: '1px solid #94a3b8',
+            borderRadius: '8px',
+            padding: '12px 16px',
+            backgroundColor: '#f8fafc',
+            marginBottom: '16px'
+          }}
+        >
+          <div
+            className="report-bio-inner flex flex-row items-center gap-4"
+            style={{
+              display: 'flex',
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: '16px'
+            }}
+          >
+            {/* Student Photo Column */}
+            <div
+              className="report-photo-col flex flex-col items-center justify-center text-center shrink-0"
+              style={{
+                width: '100px',
+                minWidth: '100px',
+                flexShrink: 0,
+                textAlign: 'center'
+              }}
+            >
               <div
-                className="student-photo-box rounded-md border-2 border-slate-400 bg-white overflow-hidden shadow-2xs flex items-center justify-center print:shadow-none"
+                className="student-photo-box rounded-md border-2 border-slate-400 bg-white overflow-hidden shadow-2xs flex items-center justify-center"
                 style={{
                   width: '96px',
                   height: '124px',
                   minWidth: '96px',
                   minHeight: '124px',
                   maxWidth: '96px',
-                  maxHeight: '124px'
+                  maxHeight: '124px',
+                  margin: '0 auto',
+                  borderRadius: '6px',
+                  border: '1px solid #94a3b8',
+                  backgroundColor: '#ffffff',
+                  overflow: 'hidden',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
                 }}
               >
                 {student.photoUrl ? (
@@ -156,87 +235,193 @@ export const IndividualReportDocument: React.FC<IndividualReportDocumentProps> =
                     }}
                   />
                 ) : (
-                  <div className="flex flex-col items-center justify-center text-slate-400 p-2">
-                    <User className="w-10 h-10 mb-1" />
-                    <span className="text-[10px] font-semibold">รูปถ่ายนักเรียน</span>
+                  <div style={{ textAlign: 'center', color: '#94a3b8', padding: '6px' }}>
+                    <User style={{ width: '38px', height: '38px', margin: '0 auto 2px' }} />
+                    <span style={{ fontSize: '10px', fontWeight: 600, display: 'block' }}>รูปถ่ายนักเรียน</span>
                   </div>
                 )}
               </div>
-              <span className="text-[10px] text-slate-500 mt-1 font-mono">{student.id}</span>
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: '#475569',
+                  marginTop: '4px',
+                  display: 'block',
+                  fontFamily: 'monospace'
+                }}
+              >
+                {student.id}
+              </span>
             </div>
 
-            {/* Student Details Grid */}
-            <div className="md:col-span-9 space-y-2 text-xs sm:text-sm">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 border-b border-slate-200 pb-2">
+            {/* Student Details & Score Summary Column */}
+            <div
+              className="report-details-col flex-1 min-w-0"
+              style={{
+                flex: 1,
+                minWidth: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+              }}
+            >
+              {/* Top details: 2 columns */}
+              <div
+                className="report-details-grid border-b border-slate-200 pb-2 text-xs sm:text-sm"
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: '4px 16px',
+                  borderBottom: '1px solid #e2e8f0',
+                  paddingBottom: '8px',
+                  fontSize: '12px'
+                }}
+              >
                 <div>
-                  <span className="text-slate-500 text-xs">ชื่อ - นามสกุล: </span>
-                  <span className="font-bold text-slate-950 text-sm">
+                  <span style={{ color: '#64748b', fontSize: '11px' }}>ชื่อ - นามสกุล: </span>
+                  <span style={{ fontWeight: 800, color: '#020617', fontSize: '13px' }}>
                     {student.title}{student.firstName} {student.lastName}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 text-xs">รหัสประจำตัวนักเรียน: </span>
-                  <span className="font-bold font-mono text-slate-950">{student.id}</span>
+                  <span style={{ color: '#64748b', fontSize: '11px' }}>รหัสประจำตัวนักเรียน: </span>
+                  <span style={{ fontWeight: 800, fontFamily: 'monospace', color: '#020617', fontSize: '13px' }}>
+                    {student.id}
+                  </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 text-xs">ระดับชั้น / ห้อง: </span>
-                  <span className="font-bold text-slate-900">{gradeInfo.grade}/{student.room}</span>
+                  <span style={{ color: '#64748b', fontSize: '11px' }}>ระดับชั้น / ห้อง: </span>
+                  <span style={{ fontWeight: 700, color: '#0f172a' }}>
+                    {gradeInfo.grade}/{student.room}
+                  </span>
                   {student.number && (
-                    <span className="ml-2 text-slate-600 font-semibold">(เลขที่ {student.number})</span>
+                    <span style={{ marginLeft: '6px', color: '#475569', fontWeight: 600 }}>
+                      (เลขที่ {student.number})
+                    </span>
                   )}
                 </div>
                 <div>
-                  <span className="text-slate-500 text-xs">หอพัก: </span>
-                  <span className="font-semibold text-slate-900">{dormName}</span>
+                  <span style={{ color: '#64748b', fontSize: '11px' }}>หอพัก: </span>
+                  <span style={{ fontWeight: 600, color: '#0f172a' }}>{dormName}</span>
                 </div>
-                <div className="sm:col-span-2">
-                  <span className="text-slate-500 text-xs">ครูที่ปรึกษา: </span>
-                  <span className="font-semibold text-slate-800">
+                <div style={{ gridColumn: 'span 2' }}>
+                  <span style={{ color: '#64748b', fontSize: '11px' }}>ครูที่ปรึกษา: </span>
+                  <span style={{ fontWeight: 600, color: '#334155' }}>
                     {advisorNamesList.length > 0 ? advisorNamesList.join(' , ') : '-'}
                   </span>
                 </div>
               </div>
 
-              {/* Official Scores Summary Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-center">
-                <div className="p-2 bg-white border border-slate-300 rounded print:border-slate-400">
-                  <span className="text-[10px] text-slate-500 block">คะแนนเริ่มต้น</span>
-                  <span className="text-base font-bold font-mono text-slate-800">100</span>
+              {/* 4 Score Summary Cards in a neat single row */}
+              <div
+                className="report-score-cards"
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(4, 1fr)',
+                  gap: '8px',
+                  paddingTop: '2px',
+                  textAlign: 'center'
+                }}
+              >
+                <div
+                  className="score-card"
+                  style={{
+                    padding: '6px 4px',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '6px'
+                  }}
+                >
+                  <span style={{ fontSize: '10px', color: '#64748b', display: 'block', fontWeight: 600 }}>คะแนนเริ่มต้น</span>
+                  <span style={{ fontSize: '16px', fontWeight: 800, fontFamily: 'monospace', color: '#1e293b' }}>
+                    100
+                  </span>
                 </div>
-                <div className="p-2 bg-white border border-slate-300 rounded print:border-slate-400">
-                  <span className="text-[10px] text-slate-500 block">ถูกหักสะสม</span>
-                  <span className="text-base font-bold font-mono text-rose-600">
+
+                <div
+                  className="score-card"
+                  style={{
+                    padding: '6px 4px',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '6px'
+                  }}
+                >
+                  <span style={{ fontSize: '10px', color: '#64748b', display: 'block', fontWeight: 600 }}>ถูกหักสะสม</span>
+                  <span style={{ fontSize: '16px', fontWeight: 800, fontFamily: 'monospace', color: '#e11d48' }}>
                     {totalDeducted > 0 ? `-${totalDeducted}` : '0'}
                   </span>
-                  <span className="text-[9px] text-slate-400 block font-normal">({deductionsCount} ครั้ง)</span>
+                  <span style={{ fontSize: '9px', color: '#94a3b8', display: 'block', lineHeight: 1 }}>
+                    ({deductionsCount} ครั้ง)
+                  </span>
                 </div>
-                <div className="p-2 bg-white border border-slate-300 rounded print:border-slate-400">
-                  <span className="text-[10px] text-slate-500 block">ได้รับเพิ่มสะสม</span>
-                  <span className="text-base font-bold font-mono text-emerald-600">
+
+                <div
+                  className="score-card"
+                  style={{
+                    padding: '6px 4px',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '6px'
+                  }}
+                >
+                  <span style={{ fontSize: '10px', color: '#64748b', display: 'block', fontWeight: 600 }}>ได้รับเพิ่มสะสม</span>
+                  <span style={{ fontSize: '16px', fontWeight: 800, fontFamily: 'monospace', color: '#059669' }}>
                     {totalAdded > 0 ? `+${totalAdded}` : '0'}
                   </span>
                 </div>
-                <div className="p-2 bg-indigo-50/70 border-2 border-indigo-500/60 rounded print:bg-white print:border-slate-800">
-                  <span className="text-[10px] text-indigo-950 font-bold block print:text-slate-800">คะแนนคงเหลือสุทธิ</span>
-                  <span className="text-lg font-black font-mono text-indigo-900 print:text-black">
+
+                <div
+                  className="score-card-highlight"
+                  style={{
+                    padding: '6px 4px',
+                    backgroundColor: '#eef2ff',
+                    border: '2px solid #6366f1',
+                    borderRadius: '6px'
+                  }}
+                >
+                  <span style={{ fontSize: '10px', color: '#312e81', fontWeight: 700, display: 'block' }}>
+                    คะแนนคงเหลือสุทธิ
+                  </span>
+                  <span style={{ fontSize: '18px', fontWeight: 900, fontFamily: 'monospace', color: '#3730a3' }}>
                     {student.currentScore}
                   </span>
                   {student.bankedPoints > 0 && (
-                    <span className="text-[9px] font-bold text-purple-700 block">
+                    <span style={{ fontSize: '9px', fontWeight: 700, color: '#7e22ce', display: 'block', lineHeight: 1 }}>
                       (สำรอง +{student.bankedPoints})
                     </span>
                   )}
                 </div>
               </div>
 
-              <div className="flex items-center justify-between text-xs pt-1 px-1">
+              {/* Status and record summary line */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: '11px',
+                  paddingTop: '2px'
+                }}
+              >
                 <div>
-                  <span className="text-slate-500">สถานะความประพฤติ: </span>
-                  <span className="font-bold text-slate-900 px-2 py-0.5 rounded border border-slate-300 bg-white inline-block">
+                  <span style={{ color: '#64748b' }}>สถานะความประพฤติ: </span>
+                  <span
+                    style={{
+                      fontWeight: 700,
+                      color: '#0f172a',
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      border: '1px solid #cbd5e1',
+                      backgroundColor: '#ffffff',
+                      display: 'inline-block'
+                    }}
+                  >
                     {scoreCategory.label}
                   </span>
                 </div>
-                <div className="text-[11px] text-slate-500">
+                <div style={{ fontSize: '11px', color: '#64748b' }}>
                   {student.hasNeverBeenDeducted ? 'รักษาคะแนนเต็มสมบูรณ์' : `มีประวัติการบันทึก ${studentLogs.length} รายการ`}
                 </div>
               </div>
@@ -245,37 +430,57 @@ export const IndividualReportDocument: React.FC<IndividualReportDocumentProps> =
         </div>
 
         {/* 3. Itemized Conduct History Table */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-bold text-xs sm:text-sm text-slate-950 flex items-center gap-1.5">
-              <span>รายการบันทึกคะแนนความประพฤติและกิจกรรม (Conduct History)</span>
-              <span className="text-xs font-normal text-slate-500">({studentLogs.length} รายการ)</span>
+        <div className="mb-4" style={{ marginBottom: '16px' }}>
+          <div
+            className="flex items-center justify-between mb-1.5"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}
+          >
+            <h3
+              className="font-bold text-xs sm:text-sm text-slate-950 m-0"
+              style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', margin: 0 }}
+            >
+              รายการบันทึกคะแนนความประพฤติและกิจกรรม (Conduct History)
+              <span style={{ fontSize: '12px', fontWeight: 400, color: '#64748b', marginLeft: '6px' }}>
+                ({studentLogs.length} รายการ)
+              </span>
             </h3>
           </div>
 
-          <table className="w-full text-xs border-collapse border border-slate-400">
+          <table
+            className="w-full text-xs border-collapse border border-slate-400"
+            style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #94a3b8', fontSize: '11px' }}
+          >
             <thead>
-              <tr className="bg-slate-100 text-slate-900 print:bg-slate-200">
-                <th className="border border-slate-400 p-1.5 text-center w-8">ที่</th>
-                <th className="border border-slate-400 p-1.5 text-center w-24">วันที่ / เวลา</th>
-                <th className="border border-slate-400 p-1.5 text-center w-20">ประเภท</th>
-                <th className="border border-slate-400 p-1.5 text-left">หัวข้อความประพฤติ / กิจกรรม / รายละเอียด</th>
-                <th className="border border-slate-400 p-1.5 text-left w-24">หมวดหมู่</th>
-                <th className="border border-slate-400 p-1.5 text-center w-14">คะแนน</th>
-                <th className="border border-slate-400 p-1.5 text-center w-16">คงเหลือ</th>
-                <th className="border border-slate-400 p-1.5 text-left w-24">ผู้บันทึก</th>
+              <tr style={{ backgroundColor: '#f1f5f9', color: '#0f172a' }}>
+                <th style={{ border: '1px solid #94a3b8', padding: '6px 4px', textAlign: 'center', width: '5%' }}>ที่</th>
+                <th style={{ border: '1px solid #94a3b8', padding: '6px 6px', textAlign: 'center', width: '15%', whiteSpace: 'nowrap' }}>วันที่ / เวลา</th>
+                <th style={{ border: '1px solid #94a3b8', padding: '6px 4px', textAlign: 'center', width: '12%', whiteSpace: 'nowrap' }}>ประเภท</th>
+                <th style={{ border: '1px solid #94a3b8', padding: '6px 8px', textAlign: 'left', width: '35%' }}>หัวข้อความประพฤติ / กิจกรรม / รายละเอียด</th>
+                <th style={{ border: '1px solid #94a3b8', padding: '6px 6px', textAlign: 'left', width: '13%' }}>หมวดหมู่</th>
+                <th style={{ border: '1px solid #94a3b8', padding: '6px 4px', textAlign: 'center', width: '7%', whiteSpace: 'nowrap' }}>คะแนน</th>
+                <th style={{ border: '1px solid #94a3b8', padding: '6px 4px', textAlign: 'center', width: '7%', whiteSpace: 'nowrap' }}>คงเหลือ</th>
+                <th style={{ border: '1px solid #94a3b8', padding: '6px 6px', textAlign: 'left', width: '12%' }}>ผู้บันทึก</th>
               </tr>
             </thead>
             <tbody>
               {studentLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="border border-slate-400 p-6 text-center text-slate-600 bg-slate-50/50">
-                    <div className="flex flex-col items-center justify-center space-y-1">
-                      <CheckCircle2 className="w-6 h-6 text-emerald-600 mb-0.5" />
-                      <span className="font-bold text-slate-800 text-xs">
+                  <td
+                    colSpan={8}
+                    style={{
+                      border: '1px solid #94a3b8',
+                      padding: '24px',
+                      textAlign: 'center',
+                      color: '#475569',
+                      backgroundColor: '#f8fafc'
+                    }}
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                      <CheckCircle2 style={{ width: '24px', height: '24px', color: '#059669', marginBottom: '4px' }} />
+                      <span style={{ fontWeight: 700, color: '#1e293b', fontSize: '13px' }}>
                         ไม่พบประวัติการถูกตัดคะแนนหรือกระทำผิดระเบียบ
                       </span>
-                      <span className="text-[11px] text-slate-500">
+                      <span style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
                         นักเรียนรักษาคะแนนเต็ม 100 คะแนน และมีความประพฤติตามมาตรฐานของสถานศึกษาอย่างเรียบร้อย
                       </span>
                     </div>
@@ -285,53 +490,61 @@ export const IndividualReportDocument: React.FC<IndividualReportDocumentProps> =
                 studentLogs.map((log, index) => {
                   const isAdd = log.type === 'ADD';
                   const dateStr = log.violationDate || log.recordedAt;
+                  const rowBg = index % 2 === 1 ? '#f8fafc' : '#ffffff';
                   return (
                     <tr
                       key={log.id}
-                      className={index % 2 === 1 ? 'bg-slate-50/70 print:bg-transparent' : 'bg-white'}
+                      style={{ backgroundColor: rowBg }}
                     >
-                      <td className="border border-slate-400 p-1.5 text-center text-slate-500 font-mono">
+                      <td style={{ border: '1px solid #94a3b8', padding: '5px 4px', textAlign: 'center', color: '#64748b', fontFamily: 'monospace' }}>
                         {index + 1}
                       </td>
-                      <td className="border border-slate-400 p-1.5 text-center font-medium text-slate-700 whitespace-nowrap">
+                      <td style={{ border: '1px solid #94a3b8', padding: '5px 6px', textAlign: 'center', fontWeight: 500, color: '#334155', whiteSpace: 'nowrap' }}>
                         {formatThaiDate(dateStr, 'short')}
                       </td>
-                      <td className="border border-slate-400 p-1.5 text-center whitespace-nowrap">
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                          isAdd
-                            ? 'text-emerald-800 bg-emerald-50 border border-emerald-300 print:border-none'
-                            : 'text-rose-800 bg-rose-50 border border-rose-300 print:border-none'
-                        }`}>
+                      <td style={{ border: '1px solid #94a3b8', padding: '5px 4px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        <span
+                          style={{
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            display: 'inline-block',
+                            backgroundColor: isAdd ? '#ecfdf5' : '#fff1f2',
+                            color: isAdd ? '#065f46' : '#9f1239',
+                            border: isAdd ? '1px solid #a7f3d0' : '1px solid #fecdd3'
+                          }}
+                        >
                           {isAdd ? '+ เพิ่มคะแนน' : '- หักคะแนน'}
                         </span>
                       </td>
-                      <td className="border border-slate-400 p-1.5 text-slate-900 leading-snug">
-                        <div className="font-bold text-slate-900">
+                      <td style={{ border: '1px solid #94a3b8', padding: '5px 8px', color: '#0f172a', lineHeight: 1.35 }}>
+                        <div style={{ fontWeight: 700, color: '#0f172a' }}>
                           {log.behaviorTitle || log.reason || '-'}
                         </div>
                         {log.description && (
-                          <div className="text-[11px] text-slate-600 mt-0.5">
+                          <div style={{ fontSize: '11px', color: '#475569', marginTop: '2px' }}>
                             {log.description}
                           </div>
                         )}
                         {log.notes && log.notes !== log.description && (
-                          <div className="text-[10px] text-slate-500 italic mt-0.5">
+                          <div style={{ fontSize: '10px', color: '#64748b', fontStyle: 'italic', marginTop: '2px' }}>
                             หมายเหตุ: {log.notes}
                           </div>
                         )}
                       </td>
-                      <td className="border border-slate-400 p-1.5 text-slate-700 text-[11px]">
+                      <td style={{ border: '1px solid #94a3b8', padding: '5px 6px', color: '#334155', fontSize: '11px' }}>
                         {log.category || '-'}
                       </td>
-                      <td className="border border-slate-400 p-1.5 text-center font-bold font-mono whitespace-nowrap">
-                        <span className={isAdd ? 'text-emerald-700' : 'text-rose-700'}>
+                      <td style={{ border: '1px solid #94a3b8', padding: '5px 4px', textAlign: 'center', fontWeight: 800, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+                        <span style={{ color: isAdd ? '#059669' : '#e11d48' }}>
                           {isAdd ? `+${log.points}` : `-${log.points}`}
                         </span>
                       </td>
-                      <td className="border border-slate-400 p-1.5 text-center font-mono font-bold text-slate-800 whitespace-nowrap">
+                      <td style={{ border: '1px solid #94a3b8', padding: '5px 4px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>
                         {log.scoreAfter ?? '-'}
                       </td>
-                      <td className="border border-slate-400 p-1.5 text-slate-600 text-[11px]">
+                      <td style={{ border: '1px solid #94a3b8', padding: '5px 6px', color: '#475569', fontSize: '11px' }}>
                         {log.recordedByName || log.recordedBy || '-'}
                       </td>
                     </tr>
@@ -342,8 +555,19 @@ export const IndividualReportDocument: React.FC<IndividualReportDocumentProps> =
           </table>
         </div>
 
-        {/* Document Footer Note */}
-        <div className="mt-8 pt-2 text-[10px] text-slate-400 flex items-center justify-between border-t border-slate-200">
+        {/* 4. Document Footer Note */}
+        <div
+          className="report-footer text-[10px] text-slate-400 flex items-center justify-between border-t border-slate-200 pt-2"
+          style={{
+            borderTop: '1px solid #e2e8f0',
+            paddingTop: '8px',
+            fontSize: '10px',
+            color: '#94a3b8',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}
+        >
           <span>{schoolName} • ระบบบริหารจัดการคะแนนความประพฤตินักเรียน</span>
           <span>เอกสารพิมพ์เมื่อ: {formatThaiDate(new Date().toISOString(), 'full-with-time')}</span>
         </div>
