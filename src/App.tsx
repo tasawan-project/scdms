@@ -1387,6 +1387,7 @@ export default function App() {
               currentUser={currentUser}
               dormitories={dormitories}
               activeReportTab={getActiveReportTabFromView(currentView)}
+              initialStudentId={selectedStudentId}
               onChangeReportTab={(tab) => {
                 switch (tab) {
                   case 'INDIVIDUAL': setCurrentView('REPORT_INDIVIDUAL'); break;
@@ -1460,6 +1461,10 @@ export default function App() {
                   return;
                 }
                 setCurrentView('PHOTOS');
+              }}
+              onOpenIndividualReport={(studentId) => {
+                setSelectedStudentId(studentId);
+                setCurrentView('REPORT_INDIVIDUAL');
               }}
             />
           ) : !isAuthenticated ? (

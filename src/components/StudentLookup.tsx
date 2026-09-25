@@ -26,6 +26,7 @@ import { StudentAvatar } from './StudentAvatar';
 import { ScoreStatusSelect } from './ScoreStatusSelect';
 import { Pagination } from './Pagination';
 import { EditConductLogModal } from './EditConductLogModal';
+import { IndividualReportPrintModal } from './IndividualReportPrintModal';
 import {
   Search,
   ShieldCheck,
@@ -86,6 +87,7 @@ interface StudentLookupProps {
   onEditConductLog?: (updatedLog: ConductLog, updatedStudent: Student) => Promise<void>;
   onDeleteConductLog?: (log: ConductLog, updatedStudent: Student) => Promise<void>;
   onOpenPhotoManager?: () => void;
+  onOpenIndividualReport?: (studentId: string) => void;
   standardBehaviors?: StandardConductBehavior[];
   dormitories?: Dormitory[];
 }
@@ -110,6 +112,7 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
   onEditConductLog,
   onDeleteConductLog,
   onOpenPhotoManager,
+  onOpenIndividualReport,
   standardBehaviors = []
 }) => {
   const cutoffs = useMemo(() => parseConductCutoffs(systemSettings), [systemSettings]);
@@ -276,6 +279,7 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
   const [editingLog, setEditingLog] = useState<ConductLog | null>(null);
   const [deletingLog, setDeletingLog] = useState<ConductLog | null>(null);
   const [isDeletingLog, setIsDeletingLog] = useState<boolean>(false);
+  const [showIndividualPrintModal, setShowIndividualPrintModal] = useState<boolean>(false);
 
   // Table state for Recent Scores / Student Conduct Table
   const [levelFilter, setLevelFilter] = useState<'ALL' | EducationalLevel>('ALL');
@@ -1532,6 +1536,18 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
                     <span className="font-mono text-sm font-black text-emerald-600">+{totalAdded}</span>
                     <span>แต้ม</span>
                   </span>
+                  {currentStudent && (
+                    <button
+                      type="button"
+                      id="btn-lookup-print-report"
+                      onClick={() => setShowIndividualPrintModal(true)}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer ml-auto"
+                      title="พิมพ์รายงานความประพฤติรายบุคคลของนักเรียนคนนี้"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      <span>พิมพ์รายงาน</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -2259,6 +2275,22 @@ export const StudentLookup: React.FC<StudentLookupProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Individual Report Print Preview Modal */}
+      {showIndividualPrintModal && currentStudent && (
+        <IndividualReportPrintModal
+          isOpen={showIndividualPrintModal}
+          onClose={() => setShowIndividualPrintModal(false)}
+          student={currentStudent}
+          conductLogs={conductLogs}
+          currentAcademicYear={currentAcademicYear}
+          currentTerm={currentTerm}
+          systemSettings={systemSettings}
+          advisors={advisors}
+          dormitories={dormitories}
+          onNavigateToFullReport={onOpenIndividualReport}
+        />
       )}
     </div>
   );

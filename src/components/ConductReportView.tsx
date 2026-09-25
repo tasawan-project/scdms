@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Pagination } from './Pagination';
+import { IndividualReportDocument } from './IndividualReportDocument';
 import {
   Student,
   ConductLog,
@@ -59,6 +60,7 @@ interface ConductReportViewProps {
   activeReportTab?: ConductReportTab;
   onChangeReportTab?: (tab: ConductReportTab) => void;
   onSelectStudent?: (studentId: string) => void;
+  initialStudentId?: string;
   onClose?: () => void;
 }
 
@@ -75,6 +77,7 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
   activeReportTab,
   onChangeReportTab,
   onSelectStudent,
+  initialStudentId,
   onClose
 }) => {
   // Map student ID to resolved dormitory information
@@ -156,8 +159,17 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
   // =========================================================================
   const [individualSearch, setIndividualSearch] = useState<string>('');
   const [selectedStudentId, setSelectedStudentId] = useState<string>(() => {
+    if (initialStudentId && students.some(s => s.id === initialStudentId)) {
+      return initialStudentId;
+    }
     return students.length > 0 ? students[0].id : '';
   });
+
+  useEffect(() => {
+    if (initialStudentId && students.some(s => s.id === initialStudentId)) {
+      setSelectedStudentId(initialStudentId);
+    }
+  }, [initialStudentId, students]);
 
   // Selected student object
   const activeStudent = useMemo(() => {
@@ -1095,242 +1107,77 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
               )}
             </div>
 
-            {/* Official Report Document: Individual Student */}
+            {/* Official Report Document: Individual Student (HTML Print Preview) */}
             {activeStudent ? (
-              <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
-                {/* Official Letterhead */}
-                <div className="text-center border-b border-slate-200 pb-5 space-y-1.5">
-                  <div className="flex items-center justify-center gap-3">
-                    {systemSettings?.logoUrl ? (
-                      <img
-                        src={systemSettings.logoUrl}
-                        alt="Logo"
-                        className="w-12 h-12 object-contain rounded-xl"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded-xl bg-indigo-700 text-white flex items-center justify-center">
-                        <School className="w-6 h-6" />
+              <div className="space-y-5">
+                {/* HTML Print Preview Control & Notice Banner (Hidden during print) */}
+                <div className="no-print bg-gradient-to-r from-indigo-50/90 via-slate-50 to-indigo-50/90 border border-indigo-200/90 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs sm:text-sm font-black text-indigo-950 tracking-tight">
+                          ตัวอย่างรูปแบบการพิมพ์บน HTML (HTML Print Preview)
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700 border border-indigo-200">
+                          A4 Portrait
+                        </span>
                       </div>
-                    )}
-                    <div className="text-left">
-                      <h2 className="text-base sm:text-lg font-black text-slate-900 leading-tight">
-                        {schoolName}
-                      </h2>
-                      <p className="text-xs font-semibold text-slate-600">
-                        ฝ่ายกิจการนักเรียนและกลุ่มงานส่งเสริมวินัยนักเรียน
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        แสดงตัวอย่างเค้าโครงเอกสารจริงก่อนสั่งพิมพ์หรือส่งออกเป็น PDF
                       </p>
                     </div>
                   </div>
-                  <h3 className="text-sm sm:text-base font-bold text-indigo-900 pt-2">
-                    ใบบันทึกคะแนนและพฤติกรรมความประพฤติรายบุคคล
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    ประจำปีการศึกษา {currentAcademicYear} ภาคเรียนที่ {currentTerm}
-                  </p>
-                </div>
 
-                {/* Student Bio Card */}
-                {(() => {
-                  const g = calculateStudentGrade(activeStudent.entryYear, activeStudent.entryLevel, currentAcademicYear);
-                  const cat = getScoreCategory(activeStudent, systemSettings);
-                  return (
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-slate-50/80 rounded-2xl border border-slate-200">
-                      {/* Photo & Basic Info */}
-                      <div className="flex items-center gap-3 md:col-span-2">
-                        {activeStudent.photoUrl ? (
-                          <img
-                            src={activeStudent.photoUrl}
-                            alt={activeStudent.firstName}
-                            className="w-16 h-16 rounded-2xl object-cover border border-slate-200 shadow-2xs shrink-0"
-                          />
-                        ) : (
-                          <div className="w-16 h-16 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-lg border border-indigo-200 shrink-0">
-                            {activeStudent.firstName.charAt(0)}
-                          </div>
-                        )}
-                        <div className="space-y-0.5 min-w-0">
-                          <h4 className="font-black text-base text-slate-900 truncate">
-                            {activeStudent.title}{activeStudent.firstName} {activeStudent.lastName}
-                          </h4>
-                          <div className="text-xs text-slate-600 flex items-center gap-2">
-                            <span>รหัสประจำตัว: <strong>{activeStudent.id}</strong></span>
-                            <span>•</span>
-                            <span>ชั้น: <strong>{g.grade}/{activeStudent.room}</strong></span>
-                            {activeStudent.number && (
-                              <>
-                                <span>•</span>
-                                <span>เลขที่: <strong>{activeStudent.number}</strong></span>
-                              </>
-                            )}
-                          </div>
-                          <div className="text-xs text-slate-600 pt-0.5">
-                            <span className="font-semibold text-slate-700">ครูที่ปรึกษา:</span>
-                            {(() => {
-                              const advList = getAdvisorNamesList(activeStudent);
-                              if (advList.length === 0) {
-                                return <span className="text-slate-400 ml-1">ยังไม่ได้ระบุ</span>;
-                              }
-                              return (
-                                <div className="mt-0.5 space-y-0.5 text-slate-700 font-medium" style={{ lineHeight: '1.35' }}>
-                                  {advList.map((adv, aIdx) => (
-                                    <div key={aIdx}>{adv}</div>
-                                  ))}
-                                </div>
-                              );
-                            })()}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Score Metrics */}
-                      <div className="flex flex-col justify-center border-t md:border-t-0 md:border-l border-slate-200 pt-3 md:pt-0 md:pl-4">
-                        <span className="text-xs text-slate-500">คะแนนความประพฤติคงเหลือ</span>
-                        <div className="flex items-baseline gap-2 mt-0.5">
-                          <span className={`text-2xl font-black ${
-                            activeStudent.currentScore >= 100
-                              ? 'text-emerald-600'
-                              : activeStudent.currentScore >= 71
-                              ? 'text-amber-600'
-                              : activeStudent.currentScore >= 51
-                              ? 'text-orange-600'
-                              : 'text-rose-600'
-                          }`}>
-                            {activeStudent.currentScore}
-                          </span>
-                          <span className="text-xs text-slate-400">/ 100</span>
-                        </div>
-                        {activeStudent.bankedPoints > 0 && (
-                          <span className="text-xs font-bold text-purple-700">
-                            + คะแนนสำรองความดี {activeStudent.bankedPoints} แต้ม
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Status & Counts */}
-                      <div className="flex flex-col justify-center border-t md:border-t-0 md:border-l border-slate-200 pt-3 md:pt-0 md:pl-4 space-y-1">
-                        <div>
-                          <span className="text-[11px] text-slate-400 block">สถานะความประพฤติ</span>
-                          <span className={`inline-block px-2.5 py-0.5 rounded-lg text-xs font-bold ${cat.badgeClass}`}>
-                            {cat.label}
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-slate-500">
-                          ประวัติ: ได้รับเพิ่ม {activeStudent.totalAddedPoints || 0} แต้ม • ถูกหัก {activeStudent.totalDeductionsCount || 0} ครั้ง ({activeStudent.totalDeductedPoints || 0} แต้ม)
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Conduct Logs Itemized Table */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-indigo-600" />
-                      <span>รายการบันทึกคะแนนความประพฤติทั้งหมด ({activeStudentLogs.length} รายการ)</span>
-                    </h4>
+                  <div className="flex items-center gap-2 flex-wrap sm:justify-end">
                     {onSelectStudent && (
                       <button
                         type="button"
                         onClick={() => onSelectStudent(activeStudent.id)}
-                        className="no-print text-xs text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 cursor-pointer"
+                        className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                        title="เปิดประวัตินักเรียนคนนี้ในหน้าค้นหานักเรียน"
                       >
-                        <span>เปิดประวัติในหน้าค้นหานักเรียน</span>
-                        <ChevronRight className="w-3.5 h-3.5" />
+                        <User className="w-3.5 h-3.5 text-indigo-600" />
+                        <span className="hidden md:inline">หน้าค้นหา</span>
                       </button>
                     )}
+
+                    <button
+                      type="button"
+                      onClick={exportCurrentReportToExcel}
+                      className="px-3.5 py-2 bg-white hover:bg-slate-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
+                      title="ส่งออกรายงานเป็นไฟล์ Excel (.xlsx)"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Excel</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handlePrint}
+                      disabled={isPrinting}
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
+                      title="พิมพ์รายงานฉบับนี้ออกเครื่องพิมพ์ หรือบันทึกเป็น PDF"
+                    >
+                      <Printer className="w-4 h-4" />
+                      <span>{isPrinting ? 'กำลังเตรียมพิมพ์...' : 'พิมพ์รายงาน'}</span>
+                    </button>
                   </div>
-
-                  {activeStudentLogs.length === 0 ? (
-                    <div className="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                      <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-1.5" />
-                      <p className="text-xs font-bold text-slate-700">ไม่พบประวัติการทำผิดหรือบันทึกคะแนน</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">นักเรียนรักษาคะแนนเต็ม 100 และมาตรฐานความประพฤติได้เรียบร้อยดี</p>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="overflow-x-auto border border-slate-200 rounded-2xl">
-                        <table className="w-full text-xs text-left">
-                          <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
-                            <tr>
-                              <th className="py-2.5 px-3 w-10 text-center">#</th>
-                              <th className="py-2.5 px-3 whitespace-nowrap">วันที่ / เวลา</th>
-                              <th className="py-2.5 px-3 whitespace-nowrap">ประเภท</th>
-                              <th className="py-2.5 px-3">หัวข้อความประพฤติ / กิจกรรม</th>
-                              <th className="py-2.5 px-3 whitespace-nowrap">หมวดหมู่</th>
-                              <th className="py-2.5 px-3 text-center whitespace-nowrap">คะแนน</th>
-                              <th className="py-2.5 px-3 text-center whitespace-nowrap">คะแนนหลังบันทึก</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {activeStudentLogs.map((log, idx) => {
-                              const isVisibleOnScreen = individualLogPageSize >= 999999 || (idx >= (individualLogPage - 1) * individualLogPageSize && idx < individualLogPage * individualLogPageSize);
-                              const isAdd = log.type === 'ADD';
-                              return (
-                                <tr
-                                  key={log.id}
-                                  className={`hover:bg-slate-50/80 transition-colors ${!isVisibleOnScreen ? 'hidden print:table-row print-show-all' : ''}`}
-                                >
-                                  <td className="py-2.5 px-3 text-center text-slate-400 font-mono">{idx + 1}</td>
-                                  <td className="py-2.5 px-3 whitespace-nowrap font-medium text-slate-700">
-                                    {formatThaiDate(log.violationDate || log.recordedAt)}
-                                  </td>
-                                  <td className="py-2.5 px-3 whitespace-nowrap">
-                                    {isAdd ? (
-                                      <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
-                                        + เพิ่มคะแนน
-                                      </span>
-                                    ) : (
-                                      <span className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200 font-bold">
-                                        - หักคะแนน
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td className="py-2.5 px-3 font-semibold text-slate-800">
-                                    <div>{log.behaviorTitle || log.reason || '-'}</div>
-                                    {log.description && (
-                                      <div className="text-[11px] text-slate-500 font-normal mt-0.5">{log.description}</div>
-                                    )}
-                                  </td>
-                                  <td className="py-2.5 px-3 whitespace-nowrap text-slate-600">
-                                    {log.category || '-'}
-                                  </td>
-                                  <td className="py-2.5 px-3 text-center font-bold font-mono whitespace-nowrap">
-                                    <span className={isAdd ? 'text-emerald-600' : 'text-rose-600'}>
-                                      {isAdd ? `+${log.points}` : `-${log.points}`}
-                                    </span>
-                                  </td>
-                                  <td className="py-2.5 px-3 text-center font-mono text-slate-700 whitespace-nowrap">
-                                    {log.scoreAfter ?? '-'}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {activeStudentLogs.length > 0 && (
-                        <div className="no-print mt-2">
-                          <Pagination
-                            currentPage={individualLogPage}
-                            totalItems={activeStudentLogs.length}
-                            pageSize={individualLogPageSize}
-                            onPageChange={setIndividualLogPage}
-                            onPageSizeChange={(size) => {
-                              setIndividualLogPageSize(size);
-                              setIndividualLogPage(1);
-                            }}
-                            pageSizeOptions={[25, 50, 100, 'ALL']}
-                            itemLabel="รายการ"
-                          />
-                        </div>
-                      )}
-                    </>
-                  )}
                 </div>
 
-
+                {/* HTML Print Document Sheet */}
+                <IndividualReportDocument
+                  student={activeStudent}
+                  conductLogs={conductLogs}
+                  currentAcademicYear={currentAcademicYear}
+                  currentTerm={currentTerm}
+                  systemSettings={systemSettings}
+                  advisors={advisors}
+                  dormitories={dormitories}
+                  showPreviewBadge={true}
+                />
               </div>
             ) : (
               <div className="text-center py-12 bg-white rounded-3xl border border-dashed border-slate-200">
