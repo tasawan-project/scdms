@@ -651,6 +651,33 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
             .text-left { text-align: left; }
             .font-bold { font-weight: bold; }
             .font-black { font-weight: 900; }
+            img.school-logo, .school-logo, img[alt="School Logo"], img[alt="Logo"] {
+              width: 48px !important;
+              height: 48px !important;
+              max-width: 48px !important;
+              max-height: 48px !important;
+              object-fit: contain !important;
+              display: inline-block !important;
+            }
+            .student-photo-box {
+              width: 96px !important;
+              height: 124px !important;
+              max-width: 96px !important;
+              max-height: 124px !important;
+              overflow: hidden !important;
+              border: 1px solid #94a3b8 !important;
+              display: flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+            }
+            img.student-photo, .student-photo {
+              width: 96px !important;
+              height: 124px !important;
+              max-width: 96px !important;
+              max-height: 124px !important;
+              object-fit: cover !important;
+              display: block !important;
+            }
             .signatures {
               margin-top: 28px;
               display: flex;
@@ -966,6 +993,33 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
           }
           thead {
             display: table-header-group !important;
+          }
+          img.school-logo, .school-logo, img[alt="School Logo"], img[alt="Logo"] {
+            width: 48px !important;
+            height: 48px !important;
+            max-width: 48px !important;
+            max-height: 48px !important;
+            object-fit: contain !important;
+            display: inline-block !important;
+          }
+          .student-photo-box {
+            width: 96px !important;
+            height: 124px !important;
+            max-width: 96px !important;
+            max-height: 124px !important;
+            overflow: hidden !important;
+            border: 1px solid #94a3b8 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+          }
+          img.student-photo, .student-photo {
+            width: 96px !important;
+            height: 124px !important;
+            max-width: 96px !important;
+            max-height: 124px !important;
+            object-fit: cover !important;
+            display: block !important;
           }
         }
       `}</style>

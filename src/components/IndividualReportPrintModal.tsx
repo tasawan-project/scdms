@@ -152,6 +152,33 @@ export const IndividualReportPrintModal: React.FC<IndividualReportPrintModalProp
             .text-right { text-align: right; }
             .text-left { text-align: left; }
             .font-bold { font-weight: bold; }
+            img.school-logo, .school-logo, img[alt="School Logo"], img[alt="Logo"] {
+              width: 48px !important;
+              height: 48px !important;
+              max-width: 48px !important;
+              max-height: 48px !important;
+              object-fit: contain !important;
+              display: inline-block !important;
+            }
+            .student-photo-box {
+              width: 96px !important;
+              height: 124px !important;
+              max-width: 96px !important;
+              max-height: 124px !important;
+              overflow: hidden !important;
+              border: 1px solid #94a3b8 !important;
+              display: flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+            }
+            img.student-photo, .student-photo {
+              width: 96px !important;
+              height: 124px !important;
+              max-width: 96px !important;
+              max-height: 124px !important;
+              object-fit: cover !important;
+              display: block !important;
+            }
           </style>
         </head>
         <body>

@@ -80,11 +80,27 @@ export const IndividualReportDocument: React.FC<IndividualReportDocumentProps> =
               <img
                 src={systemSettings.logoUrl}
                 alt="School Logo"
-                className="w-14 h-14 object-contain"
+                className="school-logo object-contain shrink-0"
+                style={{
+                  width: '48px',
+                  height: '48px',
+                  maxWidth: '48px',
+                  maxHeight: '48px',
+                  objectFit: 'contain',
+                  display: 'inline-block'
+                }}
               />
             ) : (
-              <div className="w-14 h-14 rounded-xl bg-slate-900 text-white flex items-center justify-center print:bg-black">
-                <School className="w-8 h-8" />
+              <div
+                className="school-logo rounded-xl bg-slate-900 text-white flex items-center justify-center print:bg-black shrink-0"
+                style={{
+                  width: '48px',
+                  height: '48px',
+                  minWidth: '48px',
+                  minHeight: '48px'
+                }}
+              >
+                <School className="w-7 h-7" />
               </div>
             )}
             <div className="text-left">
@@ -114,12 +130,30 @@ export const IndividualReportDocument: React.FC<IndividualReportDocumentProps> =
           <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
             {/* Student Photo */}
             <div className="md:col-span-3 flex flex-col items-center justify-center text-center">
-              <div className="w-24 h-32 sm:w-28 sm:h-36 rounded-md border-2 border-slate-400 bg-white overflow-hidden shadow-2xs flex items-center justify-center print:shadow-none">
+              <div
+                className="student-photo-box rounded-md border-2 border-slate-400 bg-white overflow-hidden shadow-2xs flex items-center justify-center print:shadow-none"
+                style={{
+                  width: '96px',
+                  height: '124px',
+                  minWidth: '96px',
+                  minHeight: '124px',
+                  maxWidth: '96px',
+                  maxHeight: '124px'
+                }}
+              >
                 {student.photoUrl ? (
                   <img
                     src={student.photoUrl}
                     alt={student.firstName}
-                    className="w-full h-full object-cover"
+                    className="student-photo object-cover"
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      maxWidth: '100%',
+                      maxHeight: '100%',
+                      objectFit: 'cover',
+                      display: 'block'
+                    }}
                   />
                 ) : (
                   <div className="flex flex-col items-center justify-center text-slate-400 p-2">
