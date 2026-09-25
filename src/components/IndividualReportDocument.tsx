@@ -145,10 +145,10 @@ export const IndividualReportDocument: React.FC<IndividualReportDocumentProps> =
                 {schoolName}
               </h1>
               <p
-                className="text-xs sm:text-sm font-semibold text-slate-700 m-0"
-                style={{ fontSize: '13px', fontWeight: 600, color: '#334155', margin: 0 }}
+                className="text-base sm:text-lg font-bold text-slate-900 tracking-tight m-0"
+                style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', margin: 0 }}
               >
-                ฝ่ายกิจการนักเรียนและกลุ่มงานส่งเสริมวินัยนักเรียน
+                กลุ่มบริหารกิจการนักเรียน
               </p>
             </div>
           </div>
