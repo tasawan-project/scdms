@@ -1,4 +1,5 @@
-import { AppUser, AppView, StudentAccessGrant, MenuAccessRule, MenuPermissionsMap } from '../types';
+import { AppUser, AppView, StudentAccessGrant, MenuAccessRule, MenuPermissionsMap, Student, ConductLog } from '../types';
+import { calculateStudentGrade } from './conductLogic';
 
 /**
  * ตรวจสอบว่าเป็น "ผู้ดูแลหลัก" (Super Admin) หรือไม่
@@ -735,4 +736,109 @@ export function canUserModifyConductScore(user: AppUser | null | undefined): boo
   if (!user) return false;
   return user.role === 'admin' || user.role === 'staff';
 }
+
+/**
+ * ดึงชื่อห้องเรียนของนักเรียน เช่น 'ม.1/5', 'ม.2/5', 'ม.3/5'
+ */
+export function getStudentClassroom(student: Student, currentAcademicYear: number = 2569): string {
+  if (!student) return '';
+  const { grade } = calculateStudentGrade(student.entryYear, student.entryLevel, currentAcademicYear);
+  return `${grade}/${student.room}`;
+}
+
+/**
+ * ตรวจสอบว่าผู้ใช้งานได้รับอนุญาตให้เข้าถึงห้องเรียนนี้หรือไม่
+ * - หากไม่ใช่ Staff (เช่น Admin หรือ Teacher หรือ Guest): ได้รับอนุญาตเสมอ
+ * - หากเป็น Staff (ระดับ 2):
+ *   - ถ้าไม่ได้กำหนด allowedClassrooms หรือเป็นอาร์เรย์ว่าง: เข้าถึงได้ทุกห้องเรียน (Full Access)
+ *   - ถ้ามีการกำหนด allowedClassrooms (เช่น ['ม.1/5', 'ม.2/5', 'ม.3/5']): ต้องตรงกับห้องที่ได้รับอนุญาตเท่านั้น
+ */
+export function isClassroomPermittedForUser(
+  user: AppUser | null | undefined,
+  classroom: string
+): boolean {
+  if (!user) return true;
+  // Admin (ระดับ 3, 4) และ Teacher (ระดับ 1 ดูได้ทุกคน) เข้าถึงได้ทุกห้องเรียน
+  if (user.role !== 'staff') return true;
+
+  // หากเป็น Staff แต่ไม่มีการกำหนด allowedClassrooms หรือ allowedClassrooms ว่างเปล่า = ดูแลได้ทุกห้อง
+  if (!user.allowedClassrooms || user.allowedClassrooms.length === 0) {
+    return true;
+  }
+
+  const cleanClass = (classroom || '').trim();
+  return user.allowedClassrooms.some(c => c.trim().toLowerCase() === cleanClass.toLowerCase());
+}
+
+/**
+ * ตรวจสอบว่านักเรียนคนนี้อยู่ในห้องเรียนที่ผู้ใช้งานได้รับอนุญาตหรือไม่
+ */
+export function isStudentPermittedForUser(
+  user: AppUser | null | undefined,
+  student: Student | null | undefined,
+  currentAcademicYear: number = 2569
+): boolean {
+  if (!student) return false;
+  if (!user) return true;
+  if (user.role !== 'staff') return true;
+  if (!user.allowedClassrooms || user.allowedClassrooms.length === 0) return true;
+
+  const classroom = getStudentClassroom(student, currentAcademicYear);
+  return isClassroomPermittedForUser(user, classroom);
+}
+
+/**
+ * กรองรายชื่อนักเรียนเฉพาะห้องเรียนที่ผู้ใช้งานได้รับอนุญาต
+ * สำหรับ Staff 2 ที่มี allowedClassrooms จะเห็นเฉพาะนักเรียนในห้องที่กำหนด ส่วนห้องอื่นจะไม่สามารถมองเห็นได้
+ */
+export function filterStudentsForUser(
+  students: Student[],
+  user: AppUser | null | undefined,
+  currentAcademicYear: number = 2569
+): Student[] {
+  if (!students || students.length === 0) return [];
+  if (!user) return students;
+  if (user.role !== 'staff') return students;
+  if (!user.allowedClassrooms || user.allowedClassrooms.length === 0) return students;
+
+  const allowedSet = new Set(user.allowedClassrooms.map(c => c.trim().toLowerCase()));
+  return students.filter(s => {
+    if (!s) return false;
+    const cl = getStudentClassroom(s, currentAcademicYear).toLowerCase();
+    return allowedSet.has(cl);
+  });
+}
+
+/**
+ * กรองประวัติการบันทึกคะแนนความประพฤติ (ConductLogs) ให้ตรงกับนักเรียนที่ได้รับอนุญาต
+ */
+export function filterConductLogsForUser(
+  conductLogs: ConductLog[],
+  permittedStudents: Student[],
+  user: AppUser | null | undefined
+): ConductLog[] {
+  if (!conductLogs || conductLogs.length === 0) return [];
+  if (!user) return conductLogs;
+  if (user.role !== 'staff') return conductLogs;
+  if (!user.allowedClassrooms || user.allowedClassrooms.length === 0) return conductLogs;
+
+  const allowedStudentIds = new Set(permittedStudents.map(s => s.id));
+  return conductLogs.filter(log => allowedStudentIds.has(log.studentId));
+}
+
+/**
+ * ตรวจสอบสิทธิ์การ เพิ่ม ลบ แก้ไข ข้อมูลคะแนนนักเรียน
+ * - ผู้ใช้ต้องมีสิทธิ์แก้ไขคะแนน (Admin หรือ Staff)
+ * - และนักเรียนต้องอยู่ในห้องเรียนที่ได้รับอนุญาต
+ */
+export function canUserModifyStudentConduct(
+  user: AppUser | null | undefined,
+  student: Student | null | undefined,
+  currentAcademicYear: number = 2569
+): boolean {
+  if (!user || !student) return false;
+  if (!canUserModifyConductScore(user)) return false;
+  return isStudentPermittedForUser(user, student, currentAcademicYear);
+}
+
 

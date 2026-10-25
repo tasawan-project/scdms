@@ -57,6 +57,10 @@
         "phone": { "type": "string" },
         "isActive": { "type": "boolean" },
         "isSuperAdmin": { "type": "boolean" },
+        "allowedClassrooms": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
         "createdAt": { "type": "string" },
         "lastLoginAt": { "type": "string" }
       },

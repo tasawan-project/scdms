@@ -31,7 +31,9 @@ import {
   UserCheck,
   UserX,
   X,
-  Sparkles
+  Sparkles,
+  Building2,
+  Check
 } from 'lucide-react';
 
 interface UserManagementSettingsProps {
@@ -64,6 +66,11 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({
   const [userOperationMsg, setUserOperationMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [expandedUserIds, setExpandedUserIds] = useState<Set<string>>(new Set());
   const [selectedUserForPasswordChange, setSelectedUserForPasswordChange] = useState<AppUser | null>(null);
+
+  // สิทธิ์กำหนดห้องเรียนเฉพาะสำหรับ Staff (ระดับ 2)
+  const [newAllowedClassrooms, setNewAllowedClassrooms] = useState<string[]>([]);
+  const [classroomRestrictionMode, setClassroomRestrictionMode] = useState<'ALL' | 'CUSTOM'>('ALL');
+  const [customRoomInput, setCustomRoomInput] = useState('');
 
   // Current user's hierarchy info
   const currentUserLevel = getUserRoleLevel(currentUser);
@@ -156,6 +163,9 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({
     setNewName('');
     setNewRole(allowedAssignableRoles[0].role);
     setNewDepartment('');
+    setNewAllowedClassrooms([]);
+    setClassroomRestrictionMode('ALL');
+    setCustomRoomInput('');
     setShowAddUserModal(true);
     setUserOperationMsg(null);
   };
@@ -178,8 +188,51 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({
     setNewName(user.name);
     setNewRole(user.role as any);
     setNewDepartment(user.department || '');
+    if (user.role === 'staff' && user.allowedClassrooms && user.allowedClassrooms.length > 0) {
+      setNewAllowedClassrooms([...user.allowedClassrooms]);
+      setClassroomRestrictionMode('CUSTOM');
+    } else {
+      setNewAllowedClassrooms([]);
+      setClassroomRestrictionMode('ALL');
+    }
+    setCustomRoomInput('');
     setShowAddUserModal(true);
     setUserOperationMsg(null);
+  };
+
+  const toggleClassroom = (classroom: string) => {
+    setNewAllowedClassrooms(prev => {
+      const exists = prev.includes(classroom);
+      if (exists) {
+        return prev.filter(c => c !== classroom);
+      } else {
+        return [...prev, classroom];
+      }
+    });
+  };
+
+  const addClassroomsBatch = (classroomsToAdd: string[]) => {
+    setNewAllowedClassrooms(prev => {
+      const set = new Set([...prev, ...classroomsToAdd]);
+      return Array.from(set);
+    });
+  };
+
+  const removeClassroomsBatch = (classroomsToRemove: string[]) => {
+    setNewAllowedClassrooms(prev => {
+      const set = new Set(classroomsToRemove);
+      return prev.filter(c => !set.has(c));
+    });
+  };
+
+  const handleAddCustomRoom = (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = customRoomInput.trim();
+    if (!clean) return;
+    if (!newAllowedClassrooms.includes(clean)) {
+      setNewAllowedClassrooms(prev => [...prev, clean]);
+    }
+    setCustomRoomInput('');
   };
 
   const handleSaveUserSubmit = async (e: React.FormEvent) => {
@@ -247,6 +300,15 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({
       finalIsSuperAdmin = false;
     }
 
+    // ตรวจสอบการเลือกห้องเรียนเฉพาะสำหรับ Staff (ระดับ 2)
+    if (finalRole === 'staff' && classroomRestrictionMode === 'CUSTOM' && newAllowedClassrooms.length === 0) {
+      setUserOperationMsg({
+        type: 'error',
+        text: 'คุณเลือกโหมดจำกัดห้องเรียน แต่ยังไม่ได้เลือกห้องเรียนใดเลย โปรดเลือกอย่างน้อย 1 ห้อง หรือเลือกโหมด "เข้าถึงได้ทุกห้องเรียน"'
+      });
+      return;
+    }
+
     // สิทธิ์การแก้ไขรหัสผ่าน
     const canEditPassword = !editingUser || canEditUserPassword(currentUser, editingUser);
     if (editingUser && newPassword.trim() !== (editingUser.password || '').trim() && !canEditPassword) {
@@ -270,6 +332,7 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({
       name: newName.trim(),
       role: finalRole,
       department: newDepartment.trim() || undefined,
+      allowedClassrooms: finalRole === 'staff' && classroomRestrictionMode === 'CUSTOM' ? newAllowedClassrooms : undefined,
       isActive: true,
       isSuperAdmin: finalIsSuperAdmin,
       createdAt: editingUser ? editingUser.createdAt : new Date().toISOString()
@@ -282,6 +345,9 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({
     setNewPassword('');
     setNewName('');
     setNewDepartment('');
+    setNewAllowedClassrooms([]);
+    setClassroomRestrictionMode('ALL');
+    setCustomRoomInput('');
     setUserOperationMsg({
       type: 'success',
       text: editingUser
@@ -477,7 +543,7 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({
                 </div>
                 <div className="font-bold text-xs text-slate-900">เจ้าหน้าที่ (Staff)</div>
                 <p className="text-[11px] text-slate-500 mt-1">
-                  จัดการได้: <strong>Teacher</strong> (ไม่สามารถจัดการ Staff, Admin, Super Admin)
+                  จัดการคะแนน: <strong>ดู เพิ่ม ลบ แก้ไข คะแนนนักเรียน</strong> (กำหนดเฉพาะห้องเรียนที่ได้รับอนุญาตได้ เช่น ม.1/5, ม.2/5, ม.3/5 หรือทุกห้อง)
                 </p>
               </div>
 
@@ -720,10 +786,30 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({
                         </td>
 
                         <td className="py-3 px-4">
-                          <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold inline-flex items-center gap-1 ${targetRoleInfo.badgeClass}`}>
-                            <span>{targetRoleInfo.icon}</span>
-                            <span>{targetRoleInfo.shortTitle} ({targetRoleInfo.levelName})</span>
-                          </span>
+                          <div className="space-y-1">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold inline-flex items-center gap-1 ${targetRoleInfo.badgeClass}`}>
+                              <span>{targetRoleInfo.icon}</span>
+                              <span>{targetRoleInfo.shortTitle} ({targetRoleInfo.levelName})</span>
+                            </span>
+                            {u.role === 'staff' && (
+                              <div>
+                                {u.allowedClassrooms && u.allowedClassrooms.length > 0 ? (
+                                  <span
+                                    className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200 inline-flex items-center gap-1"
+                                    title={`ได้รับอนุญาตเฉพาะห้อง: ${u.allowedClassrooms.join(', ')}`}
+                                  >
+                                    <Building2 className="w-3 h-3 text-amber-600 shrink-0" />
+                                    <span>เฉพาะห้อง: {u.allowedClassrooms.join(', ')}</span>
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-md text-[10px] font-medium text-slate-500 bg-slate-100 border border-slate-200 inline-flex items-center gap-1">
+                                    <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
+                                    <span>ทุกห้องเรียน (Full Access)</span>
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </td>
 
                         <td className="py-3 px-4">
@@ -918,6 +1004,43 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({
                                       : `คุณ (ระดับ ${currentUserLevel}) ≤ บัญชีนี้ (ระดับ ${targetRoleInfo.level}) จึงไม่ได้รับอนุญาตให้จัดการ`}
                                   </span>
                                 </div>
+
+                                {u.role === 'staff' && (
+                                  <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-xl space-y-1.5 sm:col-span-3">
+                                    <div className="flex items-center justify-between flex-wrap gap-1">
+                                      <span className="text-amber-950 font-bold text-xs flex items-center gap-1.5">
+                                        <Building2 className="w-4 h-4 text-amber-700" />
+                                        <span>สิทธิ์ห้องเรียนที่ได้รับอนุญาต (ดู / เพิ่ม / ลบ / แก้ไข ข้อมูลคะแนน)</span>
+                                      </span>
+                                      <span className="text-[11px] font-bold text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-full">
+                                        {u.allowedClassrooms && u.allowedClassrooms.length > 0
+                                          ? `จำกัดเฉพาะ ${u.allowedClassrooms.length} ห้องเรียน`
+                                          : 'เข้าถึงได้ทุกห้องเรียน'}
+                                      </span>
+                                    </div>
+                                    {u.allowedClassrooms && u.allowedClassrooms.length > 0 ? (
+                                      <div>
+                                        <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                                          {u.allowedClassrooms.map(c => (
+                                            <span
+                                              key={c}
+                                              className="px-2.5 py-1 bg-white border border-amber-300 rounded-lg text-xs font-black text-amber-900 shadow-2xs"
+                                            >
+                                              {c}
+                                            </span>
+                                          ))}
+                                        </div>
+                                        <p className="text-[11px] text-amber-800/90 mt-1.5">
+                                          🛡️ ผู้ใช้งานนี้สามารถ <strong>ดู เพิ่ม ลบ แก้ไข ข้อมูลคะแนน</strong> นักเรียนเฉพาะห้องเรียนที่ได้รับอนุญาตข้างต้นเท่านั้น ส่วนห้องอื่นๆจะไม่สามารถมองเห็นได้
+                                        </p>
+                                      </div>
+                                    ) : (
+                                      <p className="text-[11px] text-slate-600">
+                                        ผู้ใช้งานนี้ได้รับสิทธิ์เต็ม สามารถเข้าถึง ดู เพิ่ม ลบ แก้ไข ข้อมูลคะแนน นักเรียนได้ทุกห้องเรียน (ไม่ได้จำกัดห้อง)
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </td>
@@ -935,8 +1058,8 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({
       {/* Add/Edit User Sub-Modal */}
       {showAddUserModal && (
         <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in">
-            <div className="bg-indigo-900 text-white p-4.5 flex items-center justify-between">
+          <div className="bg-white w-full max-w-xl max-h-[90vh] flex flex-col rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in">
+            <div className="bg-indigo-900 text-white p-4.5 flex items-center justify-between shrink-0">
               <div>
                 <h4 className="font-bold text-sm">
                   {editingUser
@@ -958,7 +1081,7 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleSaveUserSubmit} className="p-5 space-y-4">
+            <form onSubmit={handleSaveUserSubmit} className="p-5 space-y-4 overflow-y-auto flex-1">
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
                   ชื่อผู้ใช้งาน (Username)
@@ -969,7 +1092,7 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({
                   disabled={!!editingUser && (editingUser.username === 'admin' || editingUser.id === 'admin')}
                   value={newUsername}
                   onChange={e => setNewUsername(e.target.value)}
-                  placeholder="เช่น teacher02, staff_somsak"
+                  placeholder="เช่น teacher02, staff_somsak, eakapon"
                   className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:bg-white focus:ring-2 focus:ring-indigo-600 focus:outline-hidden disabled:opacity-60"
                 />
               </div>
@@ -1006,7 +1129,7 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({
                   required
                   value={newName}
                   onChange={e => setNewName(e.target.value)}
-                  placeholder="เช่น ครูสมพร สอนดี"
+                  placeholder="เช่น เอกพล ภักดีวินัย, ครูสมพร สอนดี"
                   className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:ring-2 focus:ring-indigo-600 focus:outline-hidden"
                 />
               </div>
@@ -1054,6 +1177,206 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({
                 )}
               </div>
 
+              {/* Classroom permissions selector for Staff (Level 2) */}
+              {newRole === 'staff' && (
+                <div className="p-4 bg-gradient-to-br from-amber-50/80 to-indigo-50/40 rounded-2xl border border-amber-200/80 space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-1">
+                    <label className="block text-[11px] font-black text-amber-950 uppercase flex items-center gap-1.5">
+                      <Building2 className="w-4 h-4 text-amber-600" />
+                      <span>สิทธิ์ห้องเรียนสำหรับ Staff (ระดับ 2)</span>
+                    </label>
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-full">
+                      💼 เจ้าหน้าที่ฝ่ายปกครอง
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    กำหนดให้เจ้าหน้าที่สามารถ <strong>ดู เพิ่ม ลบ แก้ไข ข้อมูลคะแนน</strong> นักเรียนเฉพาะห้องเรียนที่ได้รับอนุญาต ส่วนห้องอื่นๆ จะไม่สามารถมองเห็นได้
+                  </p>
+
+                  {/* Mode Toggle: All vs Custom */}
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setClassroomRestrictionMode('ALL');
+                      }}
+                      className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        classroomRestrictionMode === 'ALL'
+                          ? 'bg-white border-indigo-600 text-indigo-700 shadow-xs ring-2 ring-indigo-500/20'
+                          : 'bg-white/60 border-slate-200 text-slate-600 hover:bg-white'
+                      }`}
+                    >
+                      <Building2 className="w-3.5 h-3.5" />
+                      <span>ทุกห้องเรียน (Full Access)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setClassroomRestrictionMode('CUSTOM');
+                        if (newAllowedClassrooms.length === 0) {
+                          // Quick default to user example: ม.1/5, ม.2/5, ม.3/5
+                          setNewAllowedClassrooms(['ม.1/5', 'ม.2/5', 'ม.3/5']);
+                        }
+                      }}
+                      className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        classroomRestrictionMode === 'CUSTOM'
+                          ? 'bg-amber-600 border-amber-700 text-white shadow-xs ring-2 ring-amber-500/20'
+                          : 'bg-white/60 border-slate-200 text-slate-600 hover:bg-white'
+                      }`}
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>จำกัดเฉพาะห้องที่อนุญาต ({newAllowedClassrooms.length})</span>
+                    </button>
+                  </div>
+
+                  {classroomRestrictionMode === 'CUSTOM' && (
+                    <div className="space-y-3 pt-2 border-t border-amber-200/60 animate-in fade-in duration-150">
+                      {/* Quick Shortcut Buttons */}
+                      <div className="space-y-1.5">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase">ปุ่มลัดเลือกห้องเรียนด่วน:</span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => addClassroomsBatch(['ม.1/5', 'ม.2/5', 'ม.3/5'])}
+                            className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 rounded-lg text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                            title="เลือก ม.1/5, ม.2/5, ม.3/5 ตามตัวอย่าง"
+                          >
+                            <span>⭐ ม.1/5, ม.2/5, ม.3/5 (ตัวอย่าง)</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => addClassroomsBatch(['ม.1/5', 'ม.2/5', 'ม.3/5', 'ม.4/5', 'ม.5/5', 'ม.6/5'])}
+                            className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[10px] font-bold transition-colors cursor-pointer"
+                          >
+                            + ห้อง /5 ทุกระดับ (ม.1-ม.6)
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => addClassroomsBatch(['ม.1/1', 'ม.1/2', 'ม.1/3', 'ม.1/4', 'ม.1/5', 'ม.1/6'])}
+                            className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[10px] font-bold transition-colors cursor-pointer"
+                          >
+                            + ม.1 ทั้งระดับ
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => addClassroomsBatch(['ม.2/1', 'ม.2/2', 'ม.2/3', 'ม.2/4', 'ม.2/5', 'ม.2/6'])}
+                            className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[10px] font-bold transition-colors cursor-pointer"
+                          >
+                            + ม.2 ทั้งระดับ
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => addClassroomsBatch(['ม.3/1', 'ม.3/2', 'ม.3/3', 'ม.3/4', 'ม.3/5', 'ม.3/6'])}
+                            className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[10px] font-bold transition-colors cursor-pointer"
+                          >
+                            + ม.3 ทั้งระดับ
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setNewAllowedClassrooms([])}
+                            className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ml-auto"
+                          >
+                            ล้างทั้งหมด
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Interactive Grade-by-Grade Grid */}
+                      <div className="space-y-2 bg-white/80 p-3 rounded-xl border border-amber-200/80 max-h-48 overflow-y-auto">
+                        {(['ม.1', 'ม.2', 'ม.3', 'ม.4', 'ม.5', 'ม.6'] as const).map(gr => (
+                          <div key={gr} className="flex items-center gap-2">
+                            <span className="w-10 text-[11px] font-black text-slate-700 shrink-0">{gr}:</span>
+                            <div className="flex items-center gap-1 flex-wrap flex-1">
+                              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(rm => {
+                                const clName = `${gr}/${rm}`;
+                                const isSelected = newAllowedClassrooms.includes(clName);
+                                return (
+                                  <button
+                                    key={clName}
+                                    type="button"
+                                    onClick={() => toggleClassroom(clName)}
+                                    className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
+                                      isSelected
+                                        ? 'bg-amber-600 text-white shadow-2xs scale-105'
+                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                    }`}
+                                  >
+                                    /{rm}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Add Custom Classroom Field */}
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={customRoomInput}
+                          onChange={e => setCustomRoomInput(e.target.value)}
+                          placeholder="เพิ่มห้องอื่น เช่น ม.1/EP, ม.2/11"
+                          className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-600 focus:outline-hidden"
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddCustomRoom(e);
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddCustomRoom}
+                          className="px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white text-xs font-bold rounded-xl cursor-pointer"
+                        >
+                          + เพิ่มห้อง
+                        </button>
+                      </div>
+
+                      {/* Selected Pill Tags */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase">
+                            ห้องเรียนที่เลือก ({newAllowedClassrooms.length} ห้อง):
+                          </span>
+                        </div>
+                        {newAllowedClassrooms.length > 0 ? (
+                          <div className="flex items-center gap-1.5 flex-wrap max-h-24 overflow-y-auto p-1.5 bg-white/90 rounded-xl border border-amber-200">
+                            {newAllowedClassrooms.map(cl => (
+                              <span
+                                key={cl}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-950 font-bold text-xs rounded-lg border border-amber-300"
+                              >
+                                <span>{cl}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleClassroom(cl)}
+                                  className="text-amber-700 hover:text-rose-600 font-bold cursor-pointer"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-[11px] text-rose-600 font-bold p-2 bg-rose-50 rounded-xl border border-rose-200">
+                            ⚠️ ยังไม่ได้เลือกห้องเรียนใดเลย โปรดเลือกอย่างน้อย 1 ห้อง
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
                   กลุ่มสาระฯ / ฝ่ายงาน (ถ้ามี)
@@ -1067,7 +1390,7 @@ export const UserManagementSettings: React.FC<UserManagementSettingsProps> = ({
                 />
               </div>
 
-              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowAddUserModal(false)}

@@ -88,14 +88,23 @@ import { AdvisorManagementView } from './components/AdvisorManagementView';
 import { LoginModal } from './components/LoginModal';
 import { GrantAccessModal } from './components/GrantAccessModal';
 import { SchoolBrandingSettings } from './components/SchoolBrandingSettings';
+import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { StandardBehaviorsSettings } from './components/StandardBehaviorsSettings';
 import { UserManagementSettings } from './components/UserManagementSettings';
 import { DatabaseSettings } from './components/DatabaseSettings';
 import { StudentGrantsSettings } from './components/StudentGrantsSettings';
 import { SystemUsageStatsSettings } from './components/SystemUsageStatsSettings';
 import { MenuPermissionsSettings } from './components/MenuPermissionsSettings';
-import { ChangePasswordModal } from './components/ChangePasswordModal';
-import { canUserAccessMenu, canDeleteTargetUser, getUserRoleLevel, getRoleLevelByRoleName } from './utils/menuPermissions';
+import {
+  canUserAccessMenu,
+  canDeleteTargetUser,
+  getUserRoleLevel,
+  getRoleLevelByRoleName,
+  filterStudentsForUser,
+  filterConductLogsForUser,
+  isStudentPermittedForUser,
+  canUserModifyStudentConduct
+} from './utils/menuPermissions';
 import { ConductActionModal } from './components/ConductActionModal';
 import { HonourRollModal } from './components/HonourRollModal';
 import { ImportStudentsModal } from './components/ImportStudentsModal';
@@ -111,7 +120,7 @@ import { EditStudentModal } from './components/EditStudentModal';
 import { DormitoryManagementView } from './components/DormitoryManagementView';
 import { DormitoryStudentsView } from './components/DormitoryStudentsView';
 import { DEFAULT_DORMITORIES } from './utils/dormitoryLogic';
-import { Loader2, ShieldAlert } from 'lucide-react';
+import { Loader2, ShieldAlert, Building2 } from 'lucide-react';
 
 const getActiveReportTabFromView = (view: AppView): ConductReportTab => {
   switch (view) {
@@ -552,6 +561,10 @@ export default function App() {
       console.warn('ผู้ใช้งาน Teacher (ระดับ 1) เป็นโหมดดูได้อย่างเดียว ไม่สามารถเพิ่มหรือตัดคะแนนพฤติกรรมได้');
       return;
     }
+    if (currentUser?.role === 'staff' && !isStudentPermittedForUser(currentUser, updatedStudent, systemSettings.currentAcademicYear)) {
+      console.warn('ผู้ใช้งาน Staff 2 ไม่มีสิทธิ์เพิ่ม/ตัดคะแนนนักเรียนนอกห้องเรียนที่ได้รับอนุญาต');
+      return;
+    }
     const recorder = currentUser ? currentUser.name : (log.recordedBy || 'เจ้าหน้าที่ฝ่ายปกครอง');
     const finalLog: ConductLog = {
       ...log,
@@ -580,6 +593,10 @@ export default function App() {
       console.warn('ผู้ใช้งาน Teacher (ระดับ 1) เป็นโหมดดูได้อย่างเดียว ไม่สามารถแก้ไขข้อมูลคะแนนพฤติกรรมได้');
       return;
     }
+    if (currentUser?.role === 'staff' && !isStudentPermittedForUser(currentUser, updatedStudent, systemSettings.currentAcademicYear)) {
+      console.warn('ผู้ใช้งาน Staff 2 ไม่มีสิทธิ์แก้ไขข้อมูลคะแนนนักเรียนนอกห้องเรียนที่ได้รับอนุญาต');
+      return;
+    }
     // อัปเดตทันที
     setStudents(prev => prev.map(s => (s.id === updatedStudent.id ? updatedStudent : s)));
     setConductLogs(prev => {
@@ -598,6 +615,10 @@ export default function App() {
   const handleDeleteConductLog = async (log: ConductLog, updatedStudent: Student) => {
     if (currentUser?.role === 'teacher') {
       console.warn('ผู้ใช้งาน Teacher (ระดับ 1) เป็นโหมดดูได้อย่างเดียว ไม่สามารถลบประวัติคะแนนพฤติกรรมได้');
+      return;
+    }
+    if (currentUser?.role === 'staff' && !isStudentPermittedForUser(currentUser, updatedStudent, systemSettings.currentAcademicYear)) {
+      console.warn('ผู้ใช้งาน Staff 2 ไม่มีสิทธิ์ลบประวัติคะแนนนักเรียนนอกห้องเรียนที่ได้รับอนุญาต');
       return;
     }
     // ลบทันทีบนหน้าจอ
@@ -1200,8 +1221,19 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const criticalCount = students.filter(s => (s.currentScore ?? 100) <= 50 && s.status === 'ACTIVE').length;
-  const warningCount = students.filter(
+  // กรองนักเรียนและประวัติคะแนนความประพฤติตามสิทธิ์ของผู้ใช้งาน
+  // หากเป็น Staff (ระดับ 2) และถูกกำหนด allowedClassrooms (เช่น ม.1/5, ม.2/5, ม.3/5)
+  // จะสามารถมองเห็นและจัดการได้เฉพาะนักเรียนในห้องที่ได้รับอนุญาตเท่านั้น ส่วนห้องอื่นๆ จะไม่สามารถมองเห็นได้
+  const permittedStudents = React.useMemo(() => {
+    return filterStudentsForUser(students, currentUser, systemSettings.currentAcademicYear);
+  }, [students, currentUser, systemSettings.currentAcademicYear]);
+
+  const permittedConductLogs = React.useMemo(() => {
+    return filterConductLogsForUser(conductLogs, permittedStudents, currentUser);
+  }, [conductLogs, permittedStudents, currentUser]);
+
+  const criticalCount = permittedStudents.filter(s => (s.currentScore ?? 100) <= 50 && s.status === 'ACTIVE').length;
+  const warningCount = permittedStudents.filter(
     s => (s.currentScore ?? 100) <= 70 && (s.currentScore ?? 100) > 50 && s.status === 'ACTIVE'
   ).length;
 
@@ -1256,7 +1288,7 @@ export default function App() {
           currentView={currentView}
           onChangeView={handleChangeView}
           systemSettings={systemSettings}
-          studentsCount={students.length}
+          studentsCount={permittedStudents.length}
           standardBehaviorsCount={standardBehaviors.length}
           accessGrantsCount={accessGrants.length}
           criticalCount={criticalCount}
@@ -1287,6 +1319,40 @@ export default function App() {
 
         {/* Main Content Area: Full width display on right side */}
         <main className="flex-1 w-full px-4 sm:px-6 lg:px-8 py-5 sm:py-6 pb-28 lg:pb-10 min-w-0">
+          {/* Staff 2 Restricted Classroom Notice Banner */}
+          {currentUser?.role === 'staff' && (currentUser.allowedClassrooms?.length ?? 0) > 0 && currentView !== 'HOME' && (
+            <div className="mb-5 bg-gradient-to-r from-amber-50 via-amber-50/90 to-amber-100/60 border border-amber-200 rounded-2xl p-3.5 sm:p-4 text-amber-950 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black shrink-0 shadow-xs">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-sm text-amber-950">
+                      สิทธิ์การเข้าถึงข้อมูลเฉพาะห้องเรียน ({currentUser.name})
+                    </span>
+                    <span className="text-[11px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 border border-amber-300">
+                      Staff ระดับ 2 (จำกัดห้อง)
+                    </span>
+                  </div>
+                  <p className="text-xs text-amber-800 mt-0.5">
+                    คุณได้รับอนุญาตให้ ดู เพิ่ม ลบ และแก้ไข ข้อมูลคะแนนนักเรียนเฉพาะห้องเรียนที่ระบุนี้เท่านั้น ({permittedStudents.length} คน)
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {currentUser.allowedClassrooms?.map(room => (
+                  <span
+                    key={room}
+                    className="px-2.5 py-1 rounded-lg bg-white border border-amber-300 font-black text-xs text-amber-900 shadow-2xs"
+                  >
+                    🏢 {room}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {currentView === 'HOME' ? (
             <HomeLandingView
               students={students}
@@ -1343,8 +1409,8 @@ export default function App() {
             </div>
           ) : currentView === 'CHECK_SCORE' ? (
             <ScoreCheckView
-              students={students}
-              conductLogs={conductLogs}
+              students={permittedStudents}
+              conductLogs={permittedConductLogs}
               accessGrants={accessGrants}
               currentUser={currentUser}
               studentGrant={studentGrant}
@@ -1362,7 +1428,7 @@ export default function App() {
           ) : currentView === 'HONOUR' ? (
             <HonourRollModal
               isPage={true}
-              students={students}
+              students={permittedStudents}
               currentAcademicYear={systemSettings.currentAcademicYear}
               systemSettings={systemSettings}
               dormitories={dormitories}
@@ -1377,8 +1443,8 @@ export default function App() {
               currentView === 'REPORT_POINTS_ADDED' ||
               currentView === 'REPORT_POINTS_DEDUCTED' ? (
             <ConductReportView
-              students={students}
-              conductLogs={conductLogs}
+              students={permittedStudents}
+              conductLogs={permittedConductLogs}
               currentAcademicYear={systemSettings.currentAcademicYear}
               currentTerm={systemSettings.currentTerm}
               systemSettings={systemSettings}
@@ -1403,8 +1469,8 @@ export default function App() {
             />
           ) : currentView === 'LOOKUP' ? (
             <StudentLookup
-              students={students}
-              conductLogs={conductLogs}
+              students={permittedStudents}
+              conductLogs={permittedConductLogs}
               standardBehaviors={standardBehaviors}
               currentAcademicYear={systemSettings.currentAcademicYear}
               currentTerm={systemSettings.currentTerm}
@@ -1517,7 +1583,7 @@ export default function App() {
             </div>
           ) : currentView === 'CRITICAL_ALERT' && currentUser ? (
             <CriticalAlertView
-              students={students}
+              students={permittedStudents}
               currentAcademicYear={systemSettings.currentAcademicYear}
               currentUser={currentUser}
               systemSettings={systemSettings}
@@ -1533,7 +1599,7 @@ export default function App() {
           ) : currentView === 'ADVISORS' && currentUser ? (
             <AdvisorManagementView
               advisors={advisors}
-              students={students}
+              students={permittedStudents}
               systemSettings={systemSettings}
               currentUser={currentUser}
               onSaveAdvisor={handleSaveAdvisor}
@@ -1547,7 +1613,7 @@ export default function App() {
           ) : (currentView === 'DORMITORIES' || currentView === 'DORMITORY_ASSIGN' || currentView === 'DORMITORY_LIST' || currentView === 'DORMITORY_TEACHERS') && currentUser ? (
             <DormitoryManagementView
               dormitories={dormitories}
-              students={students}
+              students={permittedStudents}
               currentAcademicYear={systemSettings.currentAcademicYear}
               currentUser={currentUser}
               systemSettings={systemSettings}
@@ -1581,7 +1647,7 @@ export default function App() {
           ) : currentView === 'DORMITORY_STUDENTS' && currentUser ? (
             <DormitoryStudentsView
               dormitories={dormitories}
-              students={students}
+              students={permittedStudents}
               currentAcademicYear={systemSettings.currentAcademicYear}
               initialDormId={selectedDormIdForStudentsView}
               systemSettings={systemSettings}
@@ -1601,7 +1667,7 @@ export default function App() {
           ) : currentView === 'IMPORT_CONDUCT' && currentUser ? (
             <ImportConductLogsModal
               isPage={true}
-              students={students}
+              students={permittedStudents}
               currentAcademicYear={systemSettings.currentAcademicYear}
               currentTerm={systemSettings.currentTerm}
               currentUser={currentUser}
@@ -1612,7 +1678,7 @@ export default function App() {
           ) : currentView === 'PHOTOS' && currentUser ? (
             <StudentPhotoManagerModal
               isPage={true}
-              students={students}
+              students={permittedStudents}
               currentAcademicYear={systemSettings.currentAcademicYear}
               systemSettings={systemSettings}
               onClose={() => setCurrentView('DASHBOARD')}
@@ -1713,8 +1779,8 @@ export default function App() {
             </div>
           ) : (currentView === 'DASHBOARD' || currentView === 'STUDENT_LIST') && currentUser ? (
             <Dashboard
-              students={students}
-              conductLogs={conductLogs}
+              students={permittedStudents}
+              conductLogs={permittedConductLogs}
               currentAcademicYear={systemSettings.currentAcademicYear}
               currentTerm={systemSettings.currentTerm}
               currentUser={currentUser}
@@ -1830,7 +1896,7 @@ export default function App() {
         <StudentPhotoManagerModal
           isOpen={true}
           isPage={false}
-          students={students}
+          students={permittedStudents}
           currentAcademicYear={systemSettings.currentAcademicYear}
           systemSettings={systemSettings}
           onClose={() => setShowPhotoManagerModal(false)}
@@ -1848,7 +1914,7 @@ export default function App() {
           currentAcademicYear={systemSettings.currentAcademicYear}
           advisors={advisors}
           dormitories={dormitories}
-          existingStudents={students}
+          existingStudents={permittedStudents}
           onClose={() => setShowAddStudentModal(false)}
           onSave={handleSaveNewStudent}
         />
@@ -1872,7 +1938,7 @@ export default function App() {
       {showImportConductModal && currentUser && (
         <ImportConductLogsModal
           isPage={false}
-          students={students}
+          students={permittedStudents}
           currentAcademicYear={systemSettings.currentAcademicYear}
           currentTerm={systemSettings.currentTerm}
           currentUser={currentUser}

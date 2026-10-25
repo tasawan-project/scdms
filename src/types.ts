@@ -11,6 +11,7 @@ export interface AppUser {
   phone?: string;
   isActive: boolean;
   isSuperAdmin?: boolean; // สิทธิ์ผู้ดูแลหลัก (Super Admin)
+  allowedClassrooms?: string[]; // กำหนดห้องเรียนเฉพาะสำหรับ Staff (ระดับ 2) เช่น ['ม.1/5', 'ม.2/5', 'ม.3/5'] (ถ้าว่าง/undefined = ทุกห้องเรียน)
   createdAt: string;
   updatedAt?: string;
   lastLoginAt?: string;

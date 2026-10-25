@@ -698,14 +698,34 @@ export const HomeLandingView: React.FC<HomeLandingViewProps> = ({
 
           {/* Quick Demo Access Bar for Test / Evaluation */}
           {!currentUser && (
-            <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-50 p-3 rounded-2xl">
+            <div className="pt-4 border-t border-slate-100 flex flex-col lg:flex-row items-center justify-between gap-3 bg-slate-50 p-3.5 rounded-2xl">
               <div className="flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4 text-indigo-600" />
+                <ShieldAlert className="w-4 h-4 text-indigo-600 shrink-0" />
                 <span className="text-xs font-semibold text-slate-700">
-                  ต้องการทดสอบระบบในฐานะผู้ดูแลระบบ (Admin Demo)?
+                  ทดสอบระบบด้วยบัญชีตัวอย่าง:
                 </span>
               </div>
-              <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const eakaponUser = users.find(u => u.username === 'eakapon') || {
+                      id: 'usr-staff-eakapon',
+                      username: 'eakapon',
+                      name: 'ครูเอกพล พรหมดี (Staff ระดับ 2)',
+                      role: 'staff',
+                      department: 'กลุ่มงานสารวัตรนักเรียน',
+                      email: 'eakapon@school.ac.th',
+                      isActive: true,
+                      allowedClassrooms: ['ม.1/5', 'ม.2/5', 'ม.3/5'],
+                      createdAt: new Date().toISOString()
+                    };
+                    onDemoLogin(eakaponUser);
+                  }}
+                  className="flex-1 sm:flex-none px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <span>💼 ทดสอบ Staff 2 (eakapon: ม.1/5, ม.2/5, ม.3/5)</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => {
@@ -721,9 +741,9 @@ export const HomeLandingView: React.FC<HomeLandingViewProps> = ({
                     };
                     onDemoLogin(adminUser);
                   }}
-                  className="w-full sm:w-auto px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                  className="flex-1 sm:flex-none px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                 >
-                  เข้าสู่ระบบทันที (Admin Demo)
+                  <span>👑 Admin Demo (เข้าถึงทุกห้อง)</span>
                 </button>
               </div>
             </div>

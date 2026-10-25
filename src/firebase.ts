@@ -123,6 +123,19 @@ export const DEFAULT_INITIAL_USERS: AppUser[] = [
     createdAt: '2026-01-01T00:00:00.000Z'
   },
   {
+    id: 'eakapon',
+    username: 'eakapon',
+    password: 'password1234',
+    name: 'เอกพล ภักดีวินัย',
+    role: 'staff',
+    department: 'ฝ่ายกิจการนักเรียนและวินัย',
+    email: 'eakapon@school.ac.th',
+    isActive: true,
+    isSuperAdmin: false,
+    allowedClassrooms: ['ม.1/5', 'ม.2/5', 'ม.3/5'],
+    createdAt: '2026-01-01T00:00:00.000Z'
+  },
+  {
     id: 'teacher01',
     username: 'teacher01',
     password: 'teacher1234',
