@@ -100,6 +100,16 @@ export const DormitoryReportPrintModal: React.FC<DormitoryReportPrintModalProps>
       ? '(เฉพาะนักเรียนที่คะแนนครบ 100 คะแนน)'
       : '(นักเรียนทั้งหมด)';
 
+  // Condition text matching header requirement
+  const conditionText =
+    printTypeFilter === 'LESS_THAN_100'
+      ? 'นักเรียนที่คะแนนไม่ถึง 100'
+      : printTypeFilter === 'DEDUCTED_ONLY'
+      ? 'นักเรียนที่โดนหักคะแนน'
+      : printTypeFilter === 'FULL_100_ONLY'
+      ? 'นักเรียนที่คะแนนครบ 100'
+      : 'นักเรียนทั้งหมด';
+
   // Sort description label
   const sortLabel =
     sortBy === 'ROOM_NUM'
@@ -226,11 +236,19 @@ export const DormitoryReportPrintModal: React.FC<DormitoryReportPrintModalProps>
             cells.push(`<td style="text-align: center; padding: 4px; font-family: monospace; color: #e11d48;">${st.totalDeductedPoints ? `-${st.totalDeductedPoints}` : '0'}</td>`);
           }
           if (isColVisible('status')) {
+            const statusColorMap: Record<string, string> = {
+              CRITICAL: '#dc2626',
+              WATCH: '#ea580c',
+              CAUTION: '#d97706',
+              EXCELLENT: '#7e22ce',
+              OUTSTANDING: '#2563eb',
+              NORMAL: '#16a34a'
+            };
+            const statusTextColor = statusColorMap[cat.type] || '#16a34a';
+
             cells.push(`
-              <td style="text-align: center; padding: 4px;">
-                <span style="display: inline-block; padding: 1px 5px; border-radius: 4px; font-weight: bold; border: 1px solid #cbd5e1; background-color: #f8fafc;">
-                  ${cat.shortLabel}
-                </span>
+              <td style="text-align: center; padding: 4px; font-weight: 700; color: ${statusTextColor} !important; white-space: nowrap;">
+                ${cat.shortLabel}
               </td>
             `);
           }
@@ -246,15 +264,17 @@ export const DormitoryReportPrintModal: React.FC<DormitoryReportPrintModalProps>
         })
         .join('');
 
-      // Supervisors HTML
+      // Supervisors HTML: combined into a single line
       let supervisorsHtml = '';
       if (supervisors && supervisors.length > 0) {
-        supervisorsHtml = `
-          <div style="font-size: 9.5pt; color: #334155; margin-top: 4px;">
-            <span style="font-weight: bold; color: #1e293b;">ครูหอพักผู้ดูแล:</span>
-            ${supervisors.map(s => `${s.name}${s.role ? ` (${s.role})` : ''}${s.phone ? ` โทร. ${s.phone}` : ''}`).join(' • ')}
-          </div>
-        `;
+        const teachersStr = supervisors
+          .map(s => {
+            const roleStr = s.role ? ` (${s.role})` : '';
+            const phoneStr = s.phone ? ` โทร. ${s.phone}` : '';
+            return `${s.name}${roleStr}${phoneStr}`;
+          })
+          .join(' • ');
+        supervisorsHtml = `<div class="supervisor-line">ครูหอพัก: ${teachersStr}</div>`;
       }
 
       frameDoc.open();
@@ -292,12 +312,13 @@ export const DormitoryReportPrintModal: React.FC<DormitoryReportPrintModalProps>
               margin-bottom: 12px;
               padding-bottom: 8px;
               border-bottom: 1.5px solid #0f172a;
+              line-height: 1.45;
             }
             .school-logo {
-              width: 48px;
-              height: 48px;
+              width: 50px;
+              height: 50px;
               object-fit: contain;
-              margin: 0 auto 5px auto;
+              margin: 0 auto 4px auto;
               display: block;
             }
             .school-title {
@@ -306,28 +327,23 @@ export const DormitoryReportPrintModal: React.FC<DormitoryReportPrintModalProps>
               color: #0f172a;
               margin: 0 0 2px 0;
             }
-            .report-title {
-              font-size: 11.5pt;
+            .academic-year-title {
+              font-size: 11pt;
               font-weight: 700;
-              color: #1e1b4b;
-              margin: 0 0 3px 0;
+              color: #1e293b;
+              margin: 1px 0;
             }
-            .dorm-badge {
-              font-size: 11.5pt;
-              font-weight: 800;
-              color: #1e1b4b;
-            }
-            .condition-badge {
-              font-size: 10.5pt;
+            .supervisor-line {
+              font-size: 10pt;
               font-weight: 600;
-              color: #475569;
-              margin-left: 6px;
+              color: #334155;
+              margin: 1px 0;
             }
             .meta-info {
-              font-size: 10pt !important;
-              font-weight: 600 !important;
-              color: #1e293b !important;
-              margin-top: 6px !important;
+              font-size: 10.5pt !important;
+              font-weight: 700 !important;
+              color: #0f172a !important;
+              margin-top: 4px !important;
             }
             table {
               width: 100% !important;
@@ -370,18 +386,9 @@ export const DormitoryReportPrintModal: React.FC<DormitoryReportPrintModalProps>
           <div class="header-container">
             ${schoolLogo ? `<img src="${schoolLogo}" class="school-logo" alt="ตราโรงเรียน" />` : ''}
             <div class="school-title">${schoolName}</div>
-            <div class="report-title">
-              รายงานสรุปและบัญชีคะแนนความประพฤตินักเรียน
-              <span class="dorm-badge">หอพัก: ${dormDisplayName}</span>
-              <span class="condition-badge">${conditionLabel}</span>
-            </div>
+            <div class="academic-year-title">ปีการศึกษา ${currentAcademicYear} ภาคเรียนที่ ${currentTerm}${dormDisplayName ? ` • ${dormDisplayName}` : ''}</div>
             ${supervisorsHtml}
-            <div class="meta-info">
-              ปีการศึกษา ${currentAcademicYear} ภาคเรียนที่ ${currentTerm} • 
-              จัดเรียง: ${sortLabel} • 
-              ข้อมูล ณ วันที่ ${formatThaiDate(new Date().toISOString())} • 
-              จำนวนนักเรียนทั้งหมด: ${students.length} คน
-            </div>
+            <div class="meta-info">สรุปข้อมูล ${conditionText} • <span style="color: #dc2626 !important; font-weight: 700;">ข้อมูล ณ วันที่ ${formatThaiDate(new Date().toISOString())}</span></div>
           </div>
 
           <table>
@@ -465,7 +472,7 @@ export const DormitoryReportPrintModal: React.FC<DormitoryReportPrintModalProps>
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              หอพัก: <span className="font-semibold text-slate-800">{dormDisplayName}</span> • {conditionLabel} • นักเรียน {students.length} คน
+              <span className="font-semibold text-slate-800">{dormDisplayName}</span> • {conditionLabel} • นักเรียน {students.length} คน
             </p>
           </div>
         </div>
@@ -623,28 +630,25 @@ export const DormitoryReportPrintModal: React.FC<DormitoryReportPrintModalProps>
             <h1 className="text-base sm:text-lg font-black text-slate-900 leading-tight">
               {schoolName}
             </h1>
-            <h2 className="text-sm sm:text-base font-extrabold text-indigo-950 flex items-center justify-center gap-2 flex-wrap">
-              <span>รายงานสรุปและบัญชีคะแนนความประพฤตินักเรียน</span>
-              <span className="text-indigo-900 underline decoration-indigo-300 underline-offset-2">
-                หอพัก: {dormDisplayName}
-              </span>
-              <span className="text-slate-600 font-semibold">{conditionLabel}</span>
-            </h2>
+
+            <div className="text-sm sm:text-base font-bold text-slate-800">
+              ปีการศึกษา {currentAcademicYear} ภาคเรียนที่ {currentTerm}{dormDisplayName ? ` • ${dormDisplayName}` : ''}
+            </div>
 
             {supervisors && supervisors.length > 0 && (
-              <div className="text-xs text-slate-700 pt-1">
-                <span className="font-bold text-slate-900">ครูหอพักผู้ดูแล:</span>{' '}
-                {supervisors.map(s => `${s.name}${s.role ? ` (${s.role})` : ''}${s.phone ? ` โทร. ${s.phone}` : ''}`).join(' • ')}
+              <div className="text-xs sm:text-sm font-semibold text-slate-700 pt-0.5">
+                ครูหอพัก: {supervisors.map((s, idx) => (
+                  <React.Fragment key={idx}>
+                    {idx > 0 && <span className="mx-1.5 text-slate-400">•</span>}
+                    <span>{s.name}{s.role ? ` (${s.role})` : ''}{s.phone ? ` โทร. ${s.phone}` : ''}</span>
+                  </React.Fragment>
+                ))}
               </div>
             )}
 
-            {/* Adjusted Font Size for Meta Information Line */}
-            <p className="text-xs sm:text-sm font-semibold text-slate-700 pt-1">
-              ปีการศึกษา {currentAcademicYear} ภาคเรียนที่ {currentTerm} • 
-              จัดเรียง: {sortLabel} • 
-              ข้อมูล ณ วันที่ {formatThaiDate(new Date().toISOString())} • 
-              จำนวนนักเรียนทั้งหมด: {students.length} คน
-            </p>
+            <div className="text-xs sm:text-sm font-bold text-slate-900 pt-1">
+              สรุปข้อมูล {conditionText} • <span className="text-rose-600 font-bold">ข้อมูล ณ วันที่ {formatThaiDate(new Date().toISOString())}</span>
+            </div>
           </div>
 
           {/* Student Table (Uniform Font Size text-xs across all cells!) */}
@@ -746,10 +750,22 @@ export const DormitoryReportPrintModal: React.FC<DormitoryReportPrintModalProps>
                           </td>
                         )}
                         {isColVisible('status') && (
-                          <td className="py-1.5 px-2 text-center border border-slate-300 whitespace-nowrap text-xs">
-                            <span className={`px-1.5 py-0.5 rounded text-xs font-bold border border-slate-200 ${cat.badgeClass}`}>
-                              {cat.shortLabel}
-                            </span>
+                          <td
+                            className={`py-1.5 px-2 text-center border border-slate-300 whitespace-nowrap text-xs font-bold ${
+                              cat.type === 'CRITICAL'
+                                ? 'text-rose-600'
+                                : cat.type === 'WATCH'
+                                ? 'text-orange-600'
+                                : cat.type === 'CAUTION'
+                                ? 'text-amber-600'
+                                : cat.type === 'EXCELLENT'
+                                ? 'text-purple-700'
+                                : cat.type === 'OUTSTANDING'
+                                ? 'text-blue-600'
+                                : 'text-emerald-600'
+                            }`}
+                          >
+                            {cat.shortLabel}
                           </td>
                         )}
                         {isColVisible('advisor') && (
