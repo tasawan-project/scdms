@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Pagination } from './Pagination';
 import { IndividualReportDocument } from './IndividualReportDocument';
+import { DormitoryReportPrintModal } from './DormitoryReportPrintModal';
 import {
   Student,
   ConductLog,
@@ -334,6 +335,7 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
   const [dormitorySortBy, setDormitorySortBy] = useState<'ROOM_NUM' | 'NUM_ROOM' | 'SCORE_DESC' | 'SCORE_ASC' | 'ID'>('ROOM_NUM');
   const [dormitoryTextSearch, setDormitoryTextSearch] = useState<string>('');
   const [dormitoryGradeFilter, setDormitoryGradeFilter] = useState<string>('ALL');
+  const [showDormPrintPreview, setShowDormPrintPreview] = useState<boolean>(false);
 
   // Selected dormitory object
   const selectedDorm = useMemo(() => {
@@ -678,6 +680,12 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
   const [isPrinting, setIsPrinting] = useState<boolean>(false);
 
   const handlePrint = () => {
+    // If in DORMITORY report, open the dedicated print preview modal with orientation selection!
+    if (activeTab === 'DORMITORY') {
+      setShowDormPrintPreview(true);
+      return;
+    }
+
     setIsPrinting(true);
 
     const reportElem = document.getElementById('printable-report-area');
@@ -1450,14 +1458,19 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
 
           <button
             type="button"
-            id="btn-print-conduct-report"
-            onClick={handlePrint}
+            onClick={() => {
+              if (activeTab === 'DORMITORY') {
+                setShowDormPrintPreview(true);
+              } else {
+                handlePrint();
+              }
+            }}
             disabled={isPrinting}
             className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
-            title="พิมพ์รายงานหน้านี้ออกเครื่องพิมพ์ หรือบันทึกเป็น PDF"
+            title="เปิดหน้าแสดงตัวอย่างก่อนพิมพ์ (Print Preview)"
           >
             <Printer className="w-4 h-4" />
-            <span>{isPrinting ? 'กำลังเตรียมพิมพ์...' : 'พิมพ์รายงาน'}</span>
+            <span>ตัวอย่างก่อนพิมพ์</span>
           </button>
         </div>
       </div>
@@ -1881,7 +1894,7 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
                     <p className="text-[11px] text-slate-500">เลือกหอพัก เลือกเงื่อนไขการพิมพ์ และเรียงข้อมูลตามเลขที่ ชั้น/ห้อง จากน้อยไปหามาก</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs bg-indigo-50 text-indigo-700 font-bold px-2.5 py-1 rounded-lg border border-indigo-100">
                     ตรงตามเงื่อนไข: {dormitoryReportStudents.length} คน
                   </span>
@@ -2126,11 +2139,10 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
                   <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
                     <tr>
                       <th className="py-2.5 px-3 w-10 text-center">#</th>
-                      <th className="py-2.5 px-3 whitespace-nowrap">รหัสนักเรียน</th>
-                      <th className="py-2.5 px-3">ชื่อ - นามสกุล</th>
                       <th className="py-2.5 px-3 text-center whitespace-nowrap">ชั้น/ห้อง</th>
                       <th className="py-2.5 px-3 text-center whitespace-nowrap">เลขที่</th>
-                      <th className="py-2.5 px-3 text-center whitespace-nowrap">หอพัก</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap">รหัสนักเรียน</th>
+                      <th className="py-2.5 px-3">ชื่อ - นามสกุล</th>
                       <th className="py-2.5 px-3 text-center whitespace-nowrap">คะแนนคงเหลือ</th>
                       <th className="py-2.5 px-3 text-center whitespace-nowrap">คะแนนสำรอง</th>
                       <th className="py-2.5 px-3 text-center whitespace-nowrap">หักสะสม</th>
@@ -2144,27 +2156,21 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
                         const isVisibleOnScreen = dormPageSize >= 999999 || (idx >= (dormPage - 1) * dormPageSize && idx < dormPage * dormPageSize);
                         const g = calculateStudentGrade(st.entryYear, st.entryLevel, currentAcademicYear);
                         const cat = getScoreCategory(st, systemSettings);
-                        const dormInfo = studentDormMap.get(st.id);
                         return (
                           <tr
                             key={st.id}
                             className={`hover:bg-slate-50 transition-colors ${!isVisibleOnScreen ? 'hidden print:table-row print-show-all' : ''}`}
                           >
                             <td className="py-2 px-3 text-center text-slate-400 font-mono">{idx + 1}</td>
-                            <td className="py-2 px-3 font-mono font-bold text-slate-800 whitespace-nowrap">{st.id}</td>
-                            <td className="py-2 px-3 font-medium text-slate-900">
-                              {st.title}{st.firstName} {st.lastName}
-                            </td>
                             <td className="py-2 px-3 text-center font-bold text-slate-700 whitespace-nowrap bg-slate-50/60">
                               {g.grade}/{st.room}
                             </td>
                             <td className="py-2 px-3 text-center font-mono font-bold text-slate-800">
                               {st.number || '-'}
                             </td>
-                            <td className="py-2 px-3 text-center whitespace-nowrap text-xs">
-                              <span className="font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
-                                {dormInfo?.dormName || '-'}
-                              </span>
+                            <td className="py-2 px-3 font-mono font-bold text-slate-800 whitespace-nowrap">{st.id}</td>
+                            <td className="py-2 px-3 font-medium text-slate-900">
+                              {st.title}{st.firstName} {st.lastName}
                             </td>
                             <td className="py-2 px-3 text-center font-black font-mono">
                               <span className={
@@ -2208,7 +2214,7 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
                       })
                     ) : (
                       <tr>
-                        <td colSpan={11} className="py-8 text-center text-slate-400">
+                        <td colSpan={10} className="py-8 text-center text-slate-400">
                           <Building2 className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                           <p className="font-semibold text-slate-600">ไม่พบข้อมูลนักเรียนตามเงื่อนไขที่เลือก</p>
                           <p className="text-xs text-slate-400 mt-0.5">ลองเปลี่ยนหอพัก หรือเปลี่ยนรูปแบบการพิมพ์ เช่น เลือก &apos;พิมพ์ทั้งหมด&apos;</p>
@@ -3021,6 +3027,25 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
         )}
 
       </div>
+
+      {/* Dormitory Print Preview & Print Modal */}
+      {showDormPrintPreview && (
+        <DormitoryReportPrintModal
+          isOpen={showDormPrintPreview}
+          onClose={() => setShowDormPrintPreview(false)}
+          students={dormitoryReportStudents}
+          dormitory={selectedDorm}
+          dormitoryFilter={dormitoryFilter}
+          printTypeFilter={dormitoryPrintTypeFilter}
+          sortBy={dormitorySortBy}
+          gradeFilter={dormitoryGradeFilter}
+          currentAcademicYear={currentAcademicYear}
+          currentTerm={currentTerm}
+          systemSettings={systemSettings}
+          advisors={advisors}
+          supervisors={selectedDormSupervisors}
+        />
+      )}
     </div>
   );
 };
