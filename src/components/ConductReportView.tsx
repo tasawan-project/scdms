@@ -12,7 +12,7 @@ import {
   Dormitory
 } from '../types';
 import { calculateStudentGrade, getScoreCategory, getStudentAdvisors } from '../utils/conductLogic';
-import { matchStudentToDormitory } from '../utils/dormitoryLogic';
+import { matchStudentToDormitory, getDormitorySupervisors, cleanDormDisplayName } from '../utils/dormitoryLogic';
 import * as XLSX from 'xlsx';
 import {
   Printer,
@@ -36,12 +36,14 @@ import {
   ShieldCheck,
   RefreshCw,
   X,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Building2
 } from 'lucide-react';
 
 export type ConductReportTab =
   | 'INDIVIDUAL'       // 1. รายงานแบบรายบุคคล ค้นหาด้วยข้อมูลนักเรียน
   | 'GRADE_LEVEL'      // 2. รายงานคะแนนแบบระดับชั้น
+  | 'DORMITORY'        // รายงานแบบหอพัก
   | 'FULL_100'         // 3. รายงานนักเรียนครบ 100 คะแนน
   | 'HONOUR_100_PLUS'  // 4. รายงานนักเรียนดีเด่น 100+
   | 'POINTS_ADDED'     // 5. รายงานการเพิ่มคะแนน (ระบุช่วงเวลา)(ค้นหาหัวข้อความประพฤติ)
@@ -141,6 +143,9 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
 
   const [gradePage, setGradePage] = useState<number>(1);
   const [gradePageSize, setGradePageSize] = useState<number>(25);
+
+  const [dormPage, setDormPage] = useState<number>(1);
+  const [dormPageSize, setDormPageSize] = useState<number>(25);
 
   const [full100Page, setFull100Page] = useState<number>(1);
   const [full100PageSize, setFull100PageSize] = useState<number>(25);
@@ -322,6 +327,142 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
   }, [gradeLevelFilter, gradeRoomFilter, advisors, currentAcademicYear, gradeLevelStudents]);
 
   // =========================================================================
+  // TAB: รายงานคะแนนแบบหอพัก
+  // =========================================================================
+  const [dormitoryFilter, setDormitoryFilter] = useState<string>('ALL'); // 'ALL' | 'UNASSIGNED' | dormId
+  const [dormitoryPrintTypeFilter, setDormitoryPrintTypeFilter] = useState<'ALL' | 'DEDUCTED_ONLY' | 'LESS_THAN_100' | 'FULL_100_ONLY'>('ALL');
+  const [dormitorySortBy, setDormitorySortBy] = useState<'ROOM_NUM' | 'NUM_ROOM' | 'SCORE_DESC' | 'SCORE_ASC' | 'ID'>('ROOM_NUM');
+  const [dormitoryTextSearch, setDormitoryTextSearch] = useState<string>('');
+  const [dormitoryGradeFilter, setDormitoryGradeFilter] = useState<string>('ALL');
+
+  // Selected dormitory object
+  const selectedDorm = useMemo(() => {
+    if (dormitoryFilter === 'ALL' || dormitoryFilter === 'UNASSIGNED') return null;
+    return (dormitories || []).find(d => d.id === dormitoryFilter) || null;
+  }, [dormitories, dormitoryFilter]);
+
+  // Supervisors for selected dormitory
+  const selectedDormSupervisors = useMemo(() => {
+    if (!selectedDorm) return [];
+    return getDormitorySupervisors(selectedDorm);
+  }, [selectedDorm]);
+
+  // Filtered and sorted students for Dormitory Report
+  const dormitoryReportStudents = useMemo(() => {
+    return students.filter(s => {
+      const dormInfo = studentDormMap.get(s.id);
+      const sDormId = s.dormitoryId || dormInfo?.dormId;
+
+      // 1. Dormitory Filter
+      if (dormitoryFilter !== 'ALL') {
+        if (dormitoryFilter === 'UNASSIGNED') {
+          if (sDormId) return false;
+        } else {
+          if (sDormId !== dormitoryFilter) return false;
+        }
+      }
+
+      // 2. Print Type Filter: พิมพ์ทั้งหมด / เฉพาะนักเรียนที่โดนหักคะแนน / เฉพาะนักเรียนที่คะแนนไม่ถึง 100 / คะแนนครบ 100 คะแนน
+      if (dormitoryPrintTypeFilter === 'DEDUCTED_ONLY') {
+        const isDeducted =
+          (s.totalDeductedPoints && s.totalDeductedPoints > 0) ||
+          (s.totalDeductionsCount && s.totalDeductionsCount > 0) ||
+          s.currentScore < 100 ||
+          s.hasNeverBeenDeducted === false;
+        if (!isDeducted) return false;
+      } else if (dormitoryPrintTypeFilter === 'LESS_THAN_100') {
+        if (s.currentScore >= 100) return false;
+      } else if (dormitoryPrintTypeFilter === 'FULL_100_ONLY') {
+        const isFull100 = s.currentScore === 100 && (!s.bankedPoints || s.bankedPoints === 0);
+        if (!isFull100) return false;
+      }
+
+      // 3. Optional Grade Filter
+      const g = calculateStudentGrade(s.entryYear, s.entryLevel, currentAcademicYear);
+      if (dormitoryGradeFilter !== 'ALL' && g.grade !== dormitoryGradeFilter) {
+        return false;
+      }
+
+      // 4. Text Search
+      if (dormitoryTextSearch.trim()) {
+        const q = dormitoryTextSearch.trim().toLowerCase();
+        const matchesText =
+          s.id.toLowerCase().includes(q) ||
+          `${s.firstName} ${s.lastName}`.toLowerCase().includes(q) ||
+          `${g.grade}/${s.room}`.includes(q) ||
+          (dormInfo?.dormName && dormInfo.dormName.toLowerCase().includes(q));
+        if (!matchesText) return false;
+      }
+
+      return true;
+    }).sort((a, b) => {
+      const gA = calculateStudentGrade(a.entryYear, a.entryLevel, currentAcademicYear);
+      const gB = calculateStudentGrade(b.entryYear, b.entryLevel, currentAcademicYear);
+      const numA = typeof a.number === 'number' && !isNaN(a.number) && a.number > 0 ? a.number : 99999;
+      const numB = typeof b.number === 'number' && !isNaN(b.number) && b.number > 0 ? b.number : 99999;
+
+      if (dormitorySortBy === 'SCORE_DESC') {
+        return (b.currentScore + (b.bankedPoints || 0)) - (a.currentScore + (a.bankedPoints || 0));
+      }
+      if (dormitorySortBy === 'SCORE_ASC') {
+        return a.currentScore - b.currentScore;
+      }
+      if (dormitorySortBy === 'ID') {
+        return a.id.localeCompare(b.id, 'th', { numeric: true });
+      }
+      if (dormitorySortBy === 'NUM_ROOM') {
+        if (numA !== numB) return numA - numB;
+        if (gA.gradeNumber !== gB.gradeNumber) return gA.gradeNumber - gB.gradeNumber;
+        const rA = Number(a.room) || 0;
+        const rB = Number(b.room) || 0;
+        if (rA !== rB) return rA - rB;
+        return a.id.localeCompare(b.id, 'th', { numeric: true });
+      }
+      // Default: 'ROOM_NUM' (เรียงจาก ชั้น/ห้อง ตามด้วย เลขที่ จากน้อยไปหามาก)
+      if (gA.gradeNumber !== gB.gradeNumber) return gA.gradeNumber - gB.gradeNumber;
+      const rA = Number(a.room) || 0;
+      const rB = Number(b.room) || 0;
+      if (rA !== rB) return rA - rB;
+      if (numA !== numB) return numA - numB;
+      return a.id.localeCompare(b.id, 'th', { numeric: true });
+    });
+  }, [students, studentDormMap, dormitoryFilter, dormitoryPrintTypeFilter, dormitoryGradeFilter, dormitoryTextSearch, dormitorySortBy, currentAcademicYear]);
+
+  // Statistics for Dormitory Report
+  const dormStats = useMemo(() => {
+    const total = dormitoryReportStudents.length;
+    if (total === 0) {
+      return { total: 0, avgScore: 0, honourCount: 0, full100Count: 0, cautionCount: 0, watchCount: 0, criticalCount: 0 };
+    }
+    let totalScore = 0;
+    let honourCount = 0;
+    let full100Count = 0;
+    let cautionCount = 0;
+    let watchCount = 0;
+    let criticalCount = 0;
+
+    dormitoryReportStudents.forEach(s => {
+      totalScore += s.currentScore;
+      const cat = getScoreCategory(s, systemSettings);
+      if (cat.type === 'EXCELLENT' || cat.type === 'OUTSTANDING') honourCount++;
+      else if (s.currentScore === 100 && (!s.bankedPoints || s.bankedPoints === 0)) full100Count++;
+      else if (cat.type === 'CAUTION') cautionCount++;
+      else if (cat.type === 'WATCH') watchCount++;
+      else if (cat.type === 'CRITICAL') criticalCount++;
+    });
+
+    return {
+      total,
+      avgScore: Math.round((totalScore / total) * 10) / 10,
+      honourCount,
+      full100Count,
+      cautionCount,
+      watchCount,
+      criticalCount
+    };
+  }, [dormitoryReportStudents, systemSettings]);
+
+  // =========================================================================
   // TAB 3: รายงานนักเรียนครบ 100 คะแนน
   // =========================================================================
   const [full100GradeFilter, setFull100GradeFilter] = useState<string>('ALL');
@@ -401,6 +542,10 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
   useEffect(() => {
     setGradePage(1);
   }, [gradeLevelFilter, gradeRoomFilter, gradeSortBy, gradeTextSearch]);
+
+  useEffect(() => {
+    setDormPage(1);
+  }, [dormitoryFilter, dormitoryPrintTypeFilter, dormitorySortBy, dormitoryTextSearch, dormitoryGradeFilter]);
 
   useEffect(() => {
     setFull100Page(1);
@@ -572,6 +717,16 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
         docTitle = `ใบบันทึกคะแนนความประพฤติ_${activeStudent.id}_${activeStudent.firstName}`;
       } else if (activeTab === 'GRADE_LEVEL') {
         docTitle = `รายงานคะแนนความประพฤติระดับชั้น_${gradeLevelFilter}`;
+      } else if (activeTab === 'DORMITORY') {
+        const dormTitle = selectedDorm ? selectedDorm.name : (dormitoryFilter === 'ALL' ? 'ทุกหอพัก' : 'หอพัก');
+        const filterTitle = dormitoryPrintTypeFilter === 'DEDUCTED_ONLY'
+          ? '_เฉพาะโดนหักคะแนน'
+          : dormitoryPrintTypeFilter === 'LESS_THAN_100'
+          ? '_คะแนนไม่ถึง100'
+          : dormitoryPrintTypeFilter === 'FULL_100_ONLY'
+          ? '_คะแนนครบ100'
+          : '_ทั้งหมด';
+        docTitle = `รายงานคะแนนความประพฤติ_${dormTitle}${filterTitle}`;
       } else if (activeTab === 'FULL_100') {
         docTitle = `รายงานนักเรียนครบ100คะแนน`;
       } else if (activeTab === 'HONOUR_100_PLUS') {
@@ -910,6 +1065,38 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'รายงานระดับชั้น');
       XLSX.writeFile(wb, `รายงานคะแนนระดับชั้น_${gradeLevelFilter}_ปี${currentAcademicYear}.xlsx`);
+    } else if (activeTab === 'DORMITORY') {
+      const dormTitle = selectedDorm ? selectedDorm.name : (dormitoryFilter === 'ALL' ? 'ทุกหอพัก' : 'ยังไม่ระบุหอพัก');
+      const rows = dormitoryReportStudents.map((s, idx) => {
+        const g = calculateStudentGrade(s.entryYear, s.entryLevel, currentAcademicYear);
+        const cat = getScoreCategory(s, systemSettings);
+        return {
+          'ลำดับ': idx + 1,
+          'รหัสนักเรียน': s.id,
+          'ชื่อ-นามสกุล': `${s.title}${s.firstName} ${s.lastName}`,
+          'ชั้น/ห้อง': `${g.grade}/${s.room}`,
+          'เลขที่': s.number || '-',
+          'หอพัก': studentDormMap.get(s.id)?.dormName || '-',
+          'คะแนนคงเหลือ': s.currentScore,
+          'คะแนนสะสมสำรอง': s.bankedPoints || 0,
+          'หักสะสม (แต้ม)': s.totalDeductedPoints || 0,
+          'ได้รับเพิ่ม (แต้ม)': s.totalAddedPoints || 0,
+          'จำนวนครั้งที่หัก': s.totalDeductionsCount || 0,
+          'สถานะคะแนน': cat.shortLabel,
+          'ครูที่ปรึกษา': getAdvisorNamesList(s).join('\n') || '-'
+        };
+      });
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'รายงานหอพัก');
+      const filterTag = dormitoryPrintTypeFilter === 'DEDUCTED_ONLY'
+        ? '_เฉพาะโดนหักคะแนน'
+        : dormitoryPrintTypeFilter === 'LESS_THAN_100'
+        ? '_คะแนนไม่ถึง100'
+        : dormitoryPrintTypeFilter === 'FULL_100_ONLY'
+        ? '_คะแนนครบ100'
+        : '';
+      XLSX.writeFile(wb, `รายงานคะแนนหอพัก_${dormTitle}${filterTag}_ปี${currentAcademicYear}.xlsx`);
     } else if (activeTab === 'FULL_100') {
       const rows = full100Students.map((s, idx) => {
         const g = calculateStudentGrade(s.entryYear, s.entryLevel, currentAcademicYear);
@@ -1015,6 +1202,13 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
           icon: Users,
           badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200'
         };
+      case 'DORMITORY':
+        return {
+          title: 'รายงานแบบหอพัก',
+          subtitle: `สถิติและบัญชีรายชื่อคะแนนความประพฤติจำแนกตามหอพัก (${selectedDorm ? selectedDorm.name : (dormitoryFilter === 'ALL' ? 'ทุกหอพัก' : 'ยังไม่ระบุหอพัก')}) • เรียงตามเลขที่ ชั้น/ห้อง`,
+          icon: Building2,
+          badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200'
+        };
       case 'FULL_100':
         return {
           title: 'นักเรียนครบ 100 คะแนน',
@@ -1044,7 +1238,7 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
           badgeColor: 'bg-rose-50 text-rose-700 border-rose-200'
         };
     }
-  }, [activeTab, full100Students.length, honour100PlusStudents.length, pointsAddedLogs.length, pointsDeductedLogs.length]);
+  }, [activeTab, selectedDorm, dormitoryFilter, full100Students.length, honour100PlusStudents.length, pointsAddedLogs.length, pointsDeductedLogs.length]);
 
   const CurrentReportIcon = reportInfo.icon;
 
@@ -1660,6 +1854,381 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
                     onPageSizeChange={(size) => {
                       setGradePageSize(size);
                       setGradePage(1);
+                    }}
+                    pageSizeOptions={[25, 50, 100, 'ALL']}
+                    itemLabel="คน"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ======================================================================= */}
+        {/* REPORT: รายงานคะแนนแบบหอพัก */}
+        {/* ======================================================================= */}
+        {activeTab === 'DORMITORY' && (
+          <div className="space-y-6">
+            {/* Filter Toolbar (Hidden during print) */}
+            <div className="no-print bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                    <Building2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800">ตัวกรองรายงานหอพักและการเลือกพิมพ์</h3>
+                    <p className="text-[11px] text-slate-500">เลือกหอพัก เลือกเงื่อนไขการพิมพ์ และเรียงข้อมูลตามเลขที่ ชั้น/ห้อง จากน้อยไปหามาก</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs bg-indigo-50 text-indigo-700 font-bold px-2.5 py-1 rounded-lg border border-indigo-100">
+                    ตรงตามเงื่อนไข: {dormitoryReportStudents.length} คน
+                  </span>
+                </div>
+              </div>
+
+              {/* Quick Select Buttons: เลือกพิมพ์ (พิมพ์ทั้งหมด / เฉพาะนักเรียนที่โดนหักคะแนน / เฉพาะนักเรียนที่คะแนนไม่ถึง 100 / คะแนนครบ 100 คะแนน) */}
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 block mb-1.5">
+                  เลือกเงื่อนไขการพิมพ์ / รายชื่อ:
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDormitoryPrintTypeFilter('ALL')}
+                    className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer border ${
+                      dormitoryPrintTypeFilter === 'ALL'
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                        : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <Users className="w-4 h-4 shrink-0" />
+                      <span className="truncate">พิมพ์ทั้งหมด</span>
+                    </div>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-mono ${
+                      dormitoryPrintTypeFilter === 'ALL' ? 'bg-indigo-700 text-white' : 'bg-slate-200 text-slate-700'
+                    }`}>
+                      ทั้งหมด
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDormitoryPrintTypeFilter('DEDUCTED_ONLY')}
+                    className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer border ${
+                      dormitoryPrintTypeFilter === 'DEDUCTED_ONLY'
+                        ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                        : 'bg-rose-50/50 hover:bg-rose-50 text-rose-800 border-rose-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <MinusCircle className="w-4 h-4 shrink-0" />
+                      <span className="truncate">เฉพาะนักเรียนที่โดนหักคะแนน</span>
+                    </div>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold ${
+                      dormitoryPrintTypeFilter === 'DEDUCTED_ONLY' ? 'bg-rose-700 text-white' : 'bg-rose-100 text-rose-700'
+                    }`}>
+                      โดนหักแต้ม
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDormitoryPrintTypeFilter('LESS_THAN_100')}
+                    className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer border ${
+                      dormitoryPrintTypeFilter === 'LESS_THAN_100'
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                        : 'bg-amber-50/50 hover:bg-amber-50 text-amber-900 border-amber-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <AlertOctagon className="w-4 h-4 shrink-0" />
+                      <span className="truncate">เฉพาะนักเรียนที่คะแนนไม่ถึง 100</span>
+                    </div>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold ${
+                      dormitoryPrintTypeFilter === 'LESS_THAN_100' ? 'bg-amber-700 text-white' : 'bg-amber-100 text-amber-800'
+                    }`}>
+                      &lt; 100
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDormitoryPrintTypeFilter('FULL_100_ONLY')}
+                    className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer border ${
+                      dormitoryPrintTypeFilter === 'FULL_100_ONLY'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                        : 'bg-emerald-50/50 hover:bg-emerald-50 text-emerald-800 border-emerald-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <CheckCircle2 className="w-4 h-4 shrink-0" />
+                      <span className="truncate">คะแนนครบ 100 คะแนน</span>
+                    </div>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold ${
+                      dormitoryPrintTypeFilter === 'FULL_100_ONLY' ? 'bg-emerald-700 text-white' : 'bg-emerald-100 text-emerald-700'
+                    }`}>
+                      เต็ม 100
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Advanced Filter Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1 border-t border-slate-100">
+                {/* 1. เลือกหอพัก (ใช้ชื่อหอพักจากรายชื่อหอพัก) */}
+                <div>
+                  <label className="text-[11px] font-bold text-slate-500 block mb-1">เลือกหอพัก</label>
+                  <select
+                    value={dormitoryFilter}
+                    onChange={e => setDormitoryFilter(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
+                  >
+                    <option value="ALL">ทุกหอพัก (รวมทั้งหมด)</option>
+                    {[...(dormitories || [])]
+                      .sort((a, b) => (a.dormNumber || 0) - (b.dormNumber || 0))
+                      .map(dorm => (
+                        <option key={dorm.id} value={dorm.id}>
+                          {dorm.name}
+                        </option>
+                      ))}
+                    <option value="UNASSIGNED">นักเรียนที่ยังไม่ระบุหอพัก</option>
+                  </select>
+                </div>
+
+                {/* 2. เรียงลำดับตาม (Default: เรียงจาก ชั้น/ห้อง ตามด้วย เลขที่ จากน้อยไปหามาก) */}
+                <div>
+                  <label className="text-[11px] font-bold text-slate-500 block mb-1">
+                    เรียงลำดับข้อมูล
+                  </label>
+                  <select
+                    value={dormitorySortBy}
+                    onChange={e => setDormitorySortBy(e.target.value as any)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
+                  >
+                    <option value="ROOM_NUM">ชั้น/ห้อง -&gt; เลขที่ (จากน้อยไปหามาก) [ค่าเริ่มต้น]</option>
+                    <option value="NUM_ROOM">เลขที่ -&gt; ชั้น/ห้อง (จากน้อยไปหามาก)</option>
+                    <option value="SCORE_DESC">คะแนนสูงที่สุด -&gt; น้อยที่สุด</option>
+                    <option value="SCORE_ASC">คะแนนน้อยที่สุด (เสี่ยง) -&gt; มากที่สุด</option>
+                    <option value="ID">รหัสนักเรียน</option>
+                  </select>
+                </div>
+
+                {/* 3. กรองระดับชั้นเพิ่มเติม (ทางเลือก) */}
+                <div>
+                  <label className="text-[11px] font-bold text-slate-500 block mb-1">ระดับชั้น (ทางเลือก)</label>
+                  <select
+                    value={dormitoryGradeFilter}
+                    onChange={e => setDormitoryGradeFilter(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
+                  >
+                    <option value="ALL">ทุกระดับชั้น (ม.1 - ม.6)</option>
+                    <option value="ม.1">มัธยมศึกษาปีที่ 1 (ม.1)</option>
+                    <option value="ม.2">มัธยมศึกษาปีที่ 2 (ม.2)</option>
+                    <option value="ม.3">มัธยมศึกษาปีที่ 3 (ม.3)</option>
+                    <option value="ม.4">มัธยมศึกษาปีที่ 4 (ม.4)</option>
+                    <option value="ม.5">มัธยมศึกษาปีที่ 5 (ม.5)</option>
+                    <option value="ม.6">มัธยมศึกษาปีที่ 6 (ม.6)</option>
+                  </select>
+                </div>
+
+                {/* 4. Text Search */}
+                <div>
+                  <label className="text-[11px] font-bold text-slate-500 block mb-1">ค้นหาในหอพัก</label>
+                  <input
+                    type="text"
+                    value={dormitoryTextSearch}
+                    onChange={e => setDormitoryTextSearch(e.target.value)}
+                    placeholder="รหัส, ชื่อ หรือชั้น/ห้อง..."
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Official Report Document: Dormitory Level */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+              {/* Official Document Header */}
+              <div className="text-center border-b border-slate-200 pb-5 space-y-1">
+                <h2 className="text-base sm:text-lg font-black text-slate-900 leading-tight">
+                  {schoolName}
+                </h2>
+                <h3 className="text-sm sm:text-base font-bold text-indigo-900">
+                  รายงานสรุปและบัญชีคะแนนความประพฤตินักเรียน {selectedDorm ? selectedDorm.name : (dormitoryFilter === 'ALL' ? 'ทุกหอพัก' : 'นักเรียนที่ยังไม่ระบุหอพัก')}
+                  <span className="font-semibold text-slate-700 ml-1.5">
+                    {dormitoryPrintTypeFilter === 'DEDUCTED_ONLY'
+                      ? '(เฉพาะนักเรียนที่โดนหักคะแนน)'
+                      : dormitoryPrintTypeFilter === 'LESS_THAN_100'
+                      ? '(เฉพาะนักเรียนที่คะแนนไม่ถึง 100)'
+                      : dormitoryPrintTypeFilter === 'FULL_100_ONLY'
+                      ? '(เฉพาะนักเรียนที่คะแนนครบ 100 คะแนน)'
+                      : '(นักเรียนทั้งหมด)'}
+                  </span>
+                </h3>
+
+                {selectedDorm && selectedDormSupervisors.length > 0 && (
+                  <div className="text-xs text-slate-600 pt-1">
+                    <span className="font-semibold text-slate-700">ครูหอพักผู้ดูแล:</span>
+                    <div className="mt-0.5 space-y-0.5 font-medium text-slate-800" style={{ lineHeight: '1.35' }}>
+                      {selectedDormSupervisors.map((sup, idx) => (
+                        <div key={idx}>
+                          {sup.name} {sup.role ? `(${sup.role})` : ''} {sup.phone ? `โทร. ${sup.phone}` : ''}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <p className="text-xs text-slate-500 pt-0.5">
+                  ปีการศึกษา {currentAcademicYear} ภาคเรียนที่ {currentTerm} • 
+                  เรียงข้อมูล: {dormitorySortBy === 'ROOM_NUM' ? 'ชั้น/ห้อง ตามด้วย เลขที่ (จากน้อยไปหามาก)' : dormitorySortBy === 'NUM_ROOM' ? 'เลขที่ ตามด้วย ชั้น/ห้อง' : dormitorySortBy === 'SCORE_DESC' ? 'คะแนนมากที่สุดไปน้อยที่สุด' : dormitorySortBy === 'SCORE_ASC' ? 'คะแนนน้อยที่สุดไปมากที่สุด' : 'รหัสนักเรียน'} • 
+                  ข้อมูล ณ วันที่ {formatThaiDate(new Date().toISOString())}
+                </p>
+              </div>
+
+              {/* Statistical KPI Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 sm:gap-3">
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl text-center">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">นักเรียนทั้งหมด</span>
+                  <div className="text-xl font-black text-slate-800 mt-0.5">{dormStats.total}</div>
+                </div>
+                <div className="p-3 bg-indigo-50/70 border border-indigo-200 rounded-2xl text-center">
+                  <span className="text-[10px] font-bold text-indigo-700 uppercase">คะแนนเฉลี่ย</span>
+                  <div className="text-xl font-black text-indigo-900 mt-0.5">{dormStats.avgScore}</div>
+                </div>
+                <div className="p-3 bg-violet-50 border border-violet-200 rounded-2xl text-center">
+                  <span className="text-[10px] font-bold text-violet-700 uppercase">100+ ดีเด่น</span>
+                  <div className="text-xl font-black text-violet-900 mt-0.5">{dormStats.honourCount}</div>
+                </div>
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-center">
+                  <span className="text-[10px] font-bold text-emerald-700 uppercase">เต็ม 100</span>
+                  <div className="text-xl font-black text-emerald-900 mt-0.5">{dormStats.full100Count}</div>
+                </div>
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-center">
+                  <span className="text-[10px] font-bold text-amber-700 uppercase">ตักเตือน (71-99)</span>
+                  <div className="text-xl font-black text-amber-900 mt-0.5">{dormStats.cautionCount}</div>
+                </div>
+                <div className="p-3 bg-orange-50 border border-orange-200 rounded-2xl text-center">
+                  <span className="text-[10px] font-bold text-orange-700 uppercase">เฝ้าระวัง (51-70)</span>
+                  <div className="text-xl font-black text-orange-900 mt-0.5">{dormStats.watchCount}</div>
+                </div>
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-center">
+                  <span className="text-[10px] font-bold text-rose-700 uppercase">วิกฤต (≤ 50)</span>
+                  <div className="text-xl font-black text-rose-900 mt-0.5">{dormStats.criticalCount}</div>
+                </div>
+              </div>
+
+              {/* Roster Table */}
+              <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                    <tr>
+                      <th className="py-2.5 px-3 w-10 text-center">#</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap">รหัสนักเรียน</th>
+                      <th className="py-2.5 px-3">ชื่อ - นามสกุล</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap">ชั้น/ห้อง</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap">เลขที่</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap">หอพัก</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap">คะแนนคงเหลือ</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap">คะแนนสำรอง</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap">หักสะสม</th>
+                      <th className="py-2.5 px-3 text-center whitespace-nowrap">สถานะ</th>
+                      <th className="py-2.5 px-3 whitespace-nowrap">ครูที่ปรึกษา / ครูหอพัก</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {dormitoryReportStudents.length > 0 ? (
+                      dormitoryReportStudents.map((st, idx) => {
+                        const isVisibleOnScreen = dormPageSize >= 999999 || (idx >= (dormPage - 1) * dormPageSize && idx < dormPage * dormPageSize);
+                        const g = calculateStudentGrade(st.entryYear, st.entryLevel, currentAcademicYear);
+                        const cat = getScoreCategory(st, systemSettings);
+                        const dormInfo = studentDormMap.get(st.id);
+                        return (
+                          <tr
+                            key={st.id}
+                            className={`hover:bg-slate-50 transition-colors ${!isVisibleOnScreen ? 'hidden print:table-row print-show-all' : ''}`}
+                          >
+                            <td className="py-2 px-3 text-center text-slate-400 font-mono">{idx + 1}</td>
+                            <td className="py-2 px-3 font-mono font-bold text-slate-800 whitespace-nowrap">{st.id}</td>
+                            <td className="py-2 px-3 font-medium text-slate-900">
+                              {st.title}{st.firstName} {st.lastName}
+                            </td>
+                            <td className="py-2 px-3 text-center font-bold text-slate-700 whitespace-nowrap bg-slate-50/60">
+                              {g.grade}/{st.room}
+                            </td>
+                            <td className="py-2 px-3 text-center font-mono font-bold text-slate-800">
+                              {st.number || '-'}
+                            </td>
+                            <td className="py-2 px-3 text-center whitespace-nowrap text-xs">
+                              <span className="font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
+                                {dormInfo?.dormName || '-'}
+                              </span>
+                            </td>
+                            <td className="py-2 px-3 text-center font-black font-mono">
+                              <span className={
+                                st.currentScore >= 100
+                                  ? 'text-emerald-700'
+                                  : st.currentScore >= 71
+                                  ? 'text-amber-700'
+                                  : st.currentScore >= 51
+                                  ? 'text-orange-700'
+                                  : 'text-rose-700'
+                              }>
+                                {st.currentScore}
+                              </span>
+                            </td>
+                            <td className="py-2 px-3 text-center font-mono text-purple-700 font-bold whitespace-nowrap">
+                              {st.bankedPoints > 0 ? `+${st.bankedPoints}` : '-'}
+                            </td>
+                            <td className="py-2 px-3 text-center font-mono text-rose-600 font-medium whitespace-nowrap">
+                              {st.totalDeductedPoints ? `-${st.totalDeductedPoints}` : '0'}
+                            </td>
+                            <td className="py-2 px-3 text-center whitespace-nowrap">
+                              <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${cat.badgeClass}`}>
+                                {cat.shortLabel}
+                              </span>
+                            </td>
+                            <td className="py-2 px-3 text-slate-600 whitespace-nowrap">
+                              {(() => {
+                                const advList = getAdvisorNamesList(st);
+                                if (advList.length === 0) return <span className="text-slate-400">-</span>;
+                                return (
+                                  <div className="space-y-0.5" style={{ lineHeight: '1.35' }}>
+                                    {advList.map((adv, aIdx) => (
+                                      <div key={aIdx}>{adv}</div>
+                                    ))}
+                                  </div>
+                                );
+                              })()}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan={11} className="py-8 text-center text-slate-400">
+                          <Building2 className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                          <p className="font-semibold text-slate-600">ไม่พบข้อมูลนักเรียนตามเงื่อนไขที่เลือก</p>
+                          <p className="text-xs text-slate-400 mt-0.5">ลองเปลี่ยนหอพัก หรือเปลี่ยนรูปแบบการพิมพ์ เช่น เลือก &apos;พิมพ์ทั้งหมด&apos;</p>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {dormitoryReportStudents.length > 0 && (
+                <div className="no-print mt-2">
+                  <Pagination
+                    currentPage={dormPage}
+                    totalItems={dormitoryReportStudents.length}
+                    pageSize={dormPageSize}
+                    onPageChange={setDormPage}
+                    onPageSizeChange={(size) => {
+                      setDormPageSize(size);
+                      setDormPage(1);
                     }}
                     pageSizeOptions={[25, 50, 100, 'ALL']}
                     itemLabel="คน"

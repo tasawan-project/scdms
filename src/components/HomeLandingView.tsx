@@ -32,7 +32,8 @@ import {
   ShieldAlert,
   UserCheck,
   Check,
-  ClipboardCheck
+  ClipboardCheck,
+  Building2
 } from 'lucide-react';
 
 interface HomeLandingViewProps {
@@ -70,6 +71,10 @@ export const HomeLandingView: React.FC<HomeLandingViewProps> = ({
   const currentTerm = systemSettings?.currentTerm || 1;
   const schoolName = systemSettings?.schoolNameTh || systemSettings?.schoolName || 'โรงเรียนจุฬาภรณราชวิทยาลัย ชลบุรี';
   const appName = systemSettings?.appNameTh || 'ระบบบริหารจัดการคะแนนความประพฤตินักเรียน';
+
+  // Check if current user is restricted to specific classrooms (Staff Level 2)
+  const isRestricted = currentUser?.role === 'staff' && (currentUser.allowedClassrooms?.length ?? 0) > 0;
+  const allowedRoomsText = isRestricted ? currentUser.allowedClassrooms!.join(', ') : '';
 
   // Active students
   const activeStudents = useMemo(() => {
@@ -161,6 +166,12 @@ export const HomeLandingView: React.FC<HomeLandingViewProps> = ({
                 <Calendar className="w-3.5 h-3.5" />
                 <span>ปีการศึกษา {currentYear} ภาคเรียนที่ {currentTerm}</span>
               </span>
+              {isRestricted && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/25 text-amber-200 text-xs font-semibold border border-amber-400/40 backdrop-blur-md">
+                  <Building2 className="w-3.5 h-3.5" />
+                  <span>สิทธิ์ห้องเรียนของคุณ: {allowedRoomsText} ({stats.totalStudents} คน)</span>
+                </span>
+              )}
             </div>
 
             {/* Title & Tagline */}
@@ -230,13 +241,15 @@ export const HomeLandingView: React.FC<HomeLandingViewProps> = ({
           <div className="grid grid-cols-2 gap-3 w-full lg:w-auto min-w-[280px] sm:min-w-[340px]">
             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
               <div className="flex items-center justify-between text-indigo-300 text-xs font-semibold">
-                <span>นักเรียนทั้งหมด</span>
+                <span>{isRestricted ? 'นักเรียนในสิทธิ์' : 'นักเรียนทั้งหมด'}</span>
                 <Users className="w-4 h-4" />
               </div>
               <div className="text-2xl sm:text-3xl font-black text-white mt-1">
                 {stats.totalStudents.toLocaleString()}
               </div>
-              <div className="text-[11px] text-slate-300 mt-0.5">ในระบบปัจจุบัน</div>
+              <div className="text-[11px] text-slate-300 mt-0.5 truncate">
+                {isRestricted ? `เฉพาะห้อง ${allowedRoomsText}` : 'ในระบบปัจจุบัน'}
+              </div>
             </div>
 
             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
@@ -247,7 +260,9 @@ export const HomeLandingView: React.FC<HomeLandingViewProps> = ({
               <div className="text-2xl sm:text-3xl font-black text-white mt-1">
                 {stats.averageScore}
               </div>
-              <div className="text-[11px] text-slate-300 mt-0.5">จาก 100 คะแนนเต็ม</div>
+              <div className="text-[11px] text-slate-300 mt-0.5 truncate">
+                {isRestricted ? `เฉพาะห้อง ${allowedRoomsText}` : 'จาก 100 คะแนนเต็ม'}
+              </div>
             </div>
 
             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
@@ -258,7 +273,9 @@ export const HomeLandingView: React.FC<HomeLandingViewProps> = ({
               <div className="text-2xl sm:text-3xl font-black text-white mt-1">
                 {stats.perfectScoreCount}
               </div>
-              <div className="text-[11px] text-slate-300 mt-0.5">คะแนนเต็ม/มีแต้มสะสม</div>
+              <div className="text-[11px] text-slate-300 mt-0.5 truncate">
+                {isRestricted ? `ในห้อง ${allowedRoomsText}` : 'คะแนนเต็ม/มีแต้มสะสม'}
+              </div>
             </div>
 
             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
@@ -269,7 +286,9 @@ export const HomeLandingView: React.FC<HomeLandingViewProps> = ({
               <div className="text-2xl sm:text-3xl font-black text-white mt-1">
                 {stats.positiveLogsCount}
               </div>
-              <div className="text-[11px] text-slate-300 mt-0.5">ครั้งที่เพิ่มคะแนน</div>
+              <div className="text-[11px] text-slate-300 mt-0.5 truncate">
+                {isRestricted ? `ในห้อง ${allowedRoomsText}` : 'ครั้งที่เพิ่มคะแนน'}
+              </div>
             </div>
           </div>
         </div>
@@ -287,7 +306,9 @@ export const HomeLandingView: React.FC<HomeLandingViewProps> = ({
               ตรวจสอบคะแนนความประพฤตินักเรียน
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 mt-1">
-              พิมพ์รหัสนักเรียน (เช่น 05505), ชื่อ-นามสกุล, หรือชั้น/ห้อง เพื่อดูผลการประเมินคะแนนความประพฤติทันที
+              {isRestricted
+                ? `พิมพ์รหัสนักเรียน, ชื่อ-นามสกุล หรือห้อง (ค้นหาเฉพาะนักเรียนในห้องที่ได้รับอนุญาต: ${allowedRoomsText})`
+                : 'พิมพ์รหัสนักเรียน (เช่น 05505), ชื่อ-นามสกุล, หรือชั้น/ห้อง เพื่อดูผลการประเมินคะแนนความประพฤติทันที'}
             </p>
           </div>
 
@@ -312,7 +333,11 @@ export const HomeLandingView: React.FC<HomeLandingViewProps> = ({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="ค้นหาด้วย รหัสนักเรียน (5 หลัก), ชื่อ, นามสกุล หรือ ม.1/1..."
+            placeholder={
+              isRestricted
+                ? `ค้นหานักเรียนในห้อง ${allowedRoomsText} (รหัสนักเรียน 5 หลัก, ชื่อ)...`
+                : "ค้นหาด้วย รหัสนักเรียน (5 หลัก), ชื่อ, นามสกุล หรือ ม.1/1..."
+            }
             className="w-full pl-11 pr-28 py-3.5 text-sm sm:text-base bg-slate-50 border border-slate-300 rounded-2xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all font-medium text-slate-800 placeholder:text-slate-400 shadow-inner"
           />
           {searchQuery && (
@@ -516,7 +541,9 @@ export const HomeLandingView: React.FC<HomeLandingViewProps> = ({
                 </div>
                 <div>
                   <h3 className="font-bold text-base text-slate-900">นักเรียนตัวอย่าง</h3>
-                  <p className="text-[11px] text-slate-500">คะแนนความประพฤติยอดเยี่ยม</p>
+                  <p className="text-[11px] text-slate-500">
+                    {isRestricted ? `คะแนนยอดเยี่ยมในห้อง ${allowedRoomsText}` : 'คะแนนความประพฤติยอดเยี่ยม'}
+                  </p>
                 </div>
               </div>
               <button
@@ -532,7 +559,9 @@ export const HomeLandingView: React.FC<HomeLandingViewProps> = ({
             <div className="space-y-2.5 mt-3">
               {topHonourStudents.length === 0 ? (
                 <div className="py-8 text-center text-slate-400 text-xs">
-                  ยังไม่มีข้อมูลในทำเนียบเกียรติยศ
+                  {isRestricted
+                    ? `ยังไม่มีข้อมูลในทำเนียบเกียรติยศสำหรับห้อง ${allowedRoomsText}`
+                    : 'ยังไม่มีข้อมูลในทำเนียบเกียรติยศ'}
                 </div>
               ) : (
                 topHonourStudents.map((st, idx) => {

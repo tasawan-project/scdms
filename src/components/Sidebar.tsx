@@ -470,6 +470,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 currentView === 'REPORTS' ||
                 currentView === 'REPORT_INDIVIDUAL' ||
                 currentView === 'REPORT_GRADE_LEVEL' ||
+                currentView === 'REPORT_DORMITORY' ||
                 currentView === 'REPORT_FULL_100' ||
                 currentView === 'REPORT_HONOUR_100' ||
                 currentView === 'REPORT_POINTS_ADDED' ||
@@ -541,6 +542,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     currentView === 'REPORT_GRADE_LEVEL' ? 'bg-indigo-700 text-white' : 'text-slate-400'
                   }`}>
                     ม.1-6
+                  </span>
+                </button>
+
+                {/* รายงานแบบหอพัก */}
+                <button
+                  type="button"
+                  id="sidebar-report-dormitory"
+                  onClick={() => handleNav('REPORT_DORMITORY')}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-left ${
+                    currentView === 'REPORT_DORMITORY'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <Building2 className={`w-3.5 h-3.5 shrink-0 ${
+                      currentView === 'REPORT_DORMITORY' ? 'text-white' : 'text-indigo-500'
+                    }`} />
+                    <span className="truncate">รายงานแบบหอพัก</span>
+                  </div>
+                  <span className={`text-[10px] px-1 py-0.2 rounded font-mono ${
+                    currentView === 'REPORT_DORMITORY' ? 'bg-indigo-700 text-white' : 'text-slate-400'
+                  }`}>
+                    หอพัก
                   </span>
                 </button>
 

@@ -667,6 +667,7 @@ export function canUserAccessMenu(
   if (
     view === 'REPORT_INDIVIDUAL' ||
     view === 'REPORT_GRADE_LEVEL' ||
+    view === 'REPORT_DORMITORY' ||
     view === 'REPORT_FULL_100' ||
     view === 'REPORT_HONOUR_100' ||
     view === 'REPORT_POINTS_ADDED' ||

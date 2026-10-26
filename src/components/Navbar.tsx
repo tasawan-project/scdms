@@ -112,6 +112,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       case 'REPORTS': return 'รายงานคะแนนความประพฤติ';
       case 'REPORT_INDIVIDUAL': return 'รายงานความประพฤติ: รายงานรายบุคคล';
       case 'REPORT_GRADE_LEVEL': return 'รายงานความประพฤติ: รายงานแบบระดับชั้น';
+      case 'REPORT_DORMITORY': return 'รายงานความประพฤติ: รายงานแบบหอพัก';
       case 'REPORT_FULL_100': return 'รายงานความประพฤติ: นักเรียนครบ 100 คะแนน';
       case 'REPORT_HONOUR_100': return 'รายงานความประพฤติ: นักเรียนดีเด่น 100+';
       case 'REPORT_POINTS_ADDED': return 'รายงานความประพฤติ: รายงานการเพิ่มคะแนน';
@@ -740,6 +741,25 @@ export const Navbar: React.FC<NavbarProps> = ({
                               <span>รายงานแบบระดับชั้น</span>
                             </div>
                             <span className="text-[10px] opacity-75">ม.1-6</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMobileMenuOpen(false);
+                              onChangeView('REPORT_DORMITORY');
+                            }}
+                            className={`w-full px-3 py-2 rounded-lg text-xs font-bold flex items-center justify-between transition-colors text-left ${
+                              currentView === 'REPORT_DORMITORY'
+                                ? 'bg-indigo-600 text-white'
+                                : 'text-slate-600 hover:bg-indigo-50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Building2 className="w-3.5 h-3.5" />
+                              <span>รายงานแบบหอพัก</span>
+                            </div>
+                            <span className="text-[10px] opacity-75">หอพัก</span>
                           </button>
 
                           <button

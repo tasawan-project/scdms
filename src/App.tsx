@@ -126,6 +126,8 @@ const getActiveReportTabFromView = (view: AppView): ConductReportTab => {
   switch (view) {
     case 'REPORT_GRADE_LEVEL':
       return 'GRADE_LEVEL';
+    case 'REPORT_DORMITORY':
+      return 'DORMITORY';
     case 'REPORT_FULL_100':
       return 'FULL_100';
     case 'REPORT_HONOUR_100':
@@ -1320,7 +1322,7 @@ export default function App() {
         {/* Main Content Area: Full width display on right side */}
         <main className="flex-1 w-full px-4 sm:px-6 lg:px-8 py-5 sm:py-6 pb-28 lg:pb-10 min-w-0">
           {/* Staff 2 Restricted Classroom Notice Banner */}
-          {currentUser?.role === 'staff' && (currentUser.allowedClassrooms?.length ?? 0) > 0 && currentView !== 'HOME' && (
+          {currentUser?.role === 'staff' && (currentUser.allowedClassrooms?.length ?? 0) > 0 && (
             <div className="mb-5 bg-gradient-to-r from-amber-50 via-amber-50/90 to-amber-100/60 border border-amber-200 rounded-2xl p-3.5 sm:p-4 text-amber-950 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-xs">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black shrink-0 shadow-xs">
@@ -1355,8 +1357,8 @@ export default function App() {
 
           {currentView === 'HOME' ? (
             <HomeLandingView
-              students={students}
-              conductLogs={conductLogs}
+              students={permittedStudents}
+              conductLogs={permittedConductLogs}
               systemSettings={systemSettings}
               advisors={advisors}
               standardBehaviors={standardBehaviors}
@@ -1438,6 +1440,7 @@ export default function App() {
           ) : currentView === 'REPORTS' ||
               currentView === 'REPORT_INDIVIDUAL' ||
               currentView === 'REPORT_GRADE_LEVEL' ||
+              currentView === 'REPORT_DORMITORY' ||
               currentView === 'REPORT_FULL_100' ||
               currentView === 'REPORT_HONOUR_100' ||
               currentView === 'REPORT_POINTS_ADDED' ||
@@ -1458,6 +1461,7 @@ export default function App() {
                 switch (tab) {
                   case 'INDIVIDUAL': setCurrentView('REPORT_INDIVIDUAL'); break;
                   case 'GRADE_LEVEL': setCurrentView('REPORT_GRADE_LEVEL'); break;
+                  case 'DORMITORY': setCurrentView('REPORT_DORMITORY'); break;
                   case 'FULL_100': setCurrentView('REPORT_FULL_100'); break;
                   case 'HONOUR_100_PLUS': setCurrentView('REPORT_HONOUR_100'); break;
                   case 'POINTS_ADDED': setCurrentView('REPORT_POINTS_ADDED'); break;
@@ -1804,8 +1808,8 @@ export default function App() {
             />
           ) : (
             <HomeLandingView
-              students={students}
-              conductLogs={conductLogs}
+              students={permittedStudents}
+              conductLogs={permittedConductLogs}
               systemSettings={systemSettings}
               advisors={advisors}
               standardBehaviors={standardBehaviors}
