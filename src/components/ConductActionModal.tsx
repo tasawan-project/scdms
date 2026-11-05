@@ -4,6 +4,7 @@ import { calculateDeduction, calculateAddition, calculateStudentGrade } from '..
 import { formatThaiDate } from '../utils/thaiDate';
 import { fetchStandardBehaviors, saveStandardBehavior } from '../firebase';
 import { StudentAvatar } from './StudentAvatar';
+import { ThaiDatePicker } from './ThaiDatePicker';
 import confetti from 'canvas-confetti';
 import {
   X,
@@ -91,8 +92,8 @@ export const ConductActionModal: React.FC<ConductActionModalProps> = ({
 
   const gradeInfo = calculateStudentGrade(student.entryYear, student.entryLevel, currentAcademicYear);
 
-  // Quick point chips
-  const quickPoints = type === 'DEDUCT' ? [5, 10, 15, 20, 30] : [5, 10, 15, 20, 25];
+  // Quick point chips - เลขคะแนน 1 ถึง 10 (+1 ถึง +10 หรือ -1 ถึง -10)
+  const quickPoints = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
   // Sync propBehaviors whenever it changes
   useEffect(() => {
@@ -536,7 +537,7 @@ export const ConductActionModal: React.FC<ConductActionModalProps> = ({
             </button>
           </div>
 
-          {/* Quick Points with Chips */}
+          {/* Quick Points with Chips - Single line with responsive display */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-bold text-slate-800">
@@ -544,8 +545,8 @@ export const ConductActionModal: React.FC<ConductActionModalProps> = ({
               </label>
               <span className="text-[11px] text-slate-400">แตะแต้มด่วนหรือระบุเอง</span>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative w-32">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-nowrap">
+              <div className="relative w-24 sm:w-28 shrink-0">
                 <input
                   type="number"
                   min="1"
@@ -562,35 +563,52 @@ export const ConductActionModal: React.FC<ConductActionModalProps> = ({
                     setSelectedBehaviorId(null);
                   }}
                   placeholder="คะแนน"
-                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-mono text-base font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                  className="w-full pl-3 pr-7 py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-mono text-sm sm:text-base font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
                   required
                 />
-                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400 pointer-events-none">
                   แต้ม
                 </span>
               </div>
 
-              {/* Quick Point Chips */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {quickPoints.map(p => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => {
-                      setPoints(p);
-                      setSelectedBehaviorId(null);
-                    }}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      points === p
-                        ? type === 'DEDUCT'
-                          ? 'bg-rose-100 text-rose-800 border border-rose-300 shadow-2xs'
-                          : 'bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs'
-                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
-                    }`}
-                  >
-                    {type === 'DEDUCT' ? `-${p}` : `+${p}`}
-                  </button>
-                ))}
+              {/* Quick Point Chips on the same line, hidden responsively by screen size */}
+              <div className="flex items-center gap-1 sm:gap-1.5 flex-nowrap overflow-x-auto py-0.5">
+                {quickPoints.map(p => {
+                  const isSelected = points === p;
+                  // ซ่อนปุ่มแต้มด่วนตามขนาดหน้าจอแสดงผล
+                  const visibilityClass = isSelected
+                    ? 'inline-flex'
+                    : p <= 3
+                    ? 'inline-flex'
+                    : p <= 5
+                    ? 'hidden min-[400px]:inline-flex'
+                    : p <= 7
+                    ? 'hidden min-[480px]:inline-flex'
+                    : p <= 8
+                    ? 'hidden min-[560px]:inline-flex'
+                    : 'hidden sm:inline-flex';
+
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => {
+                        setPoints(p);
+                        setSelectedBehaviorId(null);
+                      }}
+                      className={`${visibilityClass} items-center justify-center px-2 sm:px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                        isSelected
+                          ? type === 'DEDUCT'
+                            ? 'bg-rose-100 text-rose-800 border border-rose-300 shadow-2xs ring-1 ring-rose-400 font-extrabold'
+                            : 'bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs ring-1 ring-emerald-400 font-extrabold'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
+                      }`}
+                      title={`${type === 'DEDUCT' ? 'หัก' : 'เพิ่ม'} ${p} คะแนน`}
+                    >
+                      {type === 'DEDUCT' ? `-${p}` : `+${p}`}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -780,11 +798,10 @@ export const ConductActionModal: React.FC<ConductActionModalProps> = ({
                   <button type="button" onClick={setDateYesterday} className="text-indigo-600 hover:underline cursor-pointer">วานนี้</button>
                 </div>
               </label>
-              <input
-                type="date"
+              <ThaiDatePicker
                 value={violationDate}
-                onChange={e => setViolationDate(e.target.value)}
-                className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                onChange={setViolationDate}
+                themeColor={type === 'DEDUCT' ? 'rose' : 'emerald'}
               />
             </div>
           </div>

@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Pagination } from './Pagination';
 import { IndividualReportDocument } from './IndividualReportDocument';
 import { DormitoryReportPrintModal } from './DormitoryReportPrintModal';
+import { GradeReportPrintModal } from './GradeReportPrintModal';
 import {
   Student,
   ConductLog,
@@ -213,8 +214,10 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
   // =========================================================================
   const [gradeLevelFilter, setGradeLevelFilter] = useState<string>('ALL'); // 'ALL' | 'ม.1' - 'ม.6'
   const [gradeRoomFilter, setGradeRoomFilter] = useState<string>('ALL');   // 'ALL' | '1', '2', etc.
+  const [gradePrintTypeFilter, setGradePrintTypeFilter] = useState<'ALL' | 'DEDUCTED_ONLY' | 'LESS_THAN_100' | 'FULL_100_ONLY'>('ALL');
   const [gradeSortBy, setGradeSortBy] = useState<'SCORE_ASC' | 'SCORE_DESC' | 'ROOM_NUM' | 'ID'>('ROOM_NUM');
   const [gradeTextSearch, setGradeTextSearch] = useState<string>('');
+  const [showGradePrintPreview, setShowGradePrintPreview] = useState<boolean>(false);
 
   // Distinct rooms from students in the system (filtered by gradeLevelFilter if selected)
   const availableGradeRooms = useMemo(() => {
@@ -246,6 +249,22 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
       const g = calculateStudentGrade(s.entryYear, s.entryLevel, currentAcademicYear);
       if (gradeLevelFilter !== 'ALL' && g.grade !== gradeLevelFilter) return false;
       if (gradeRoomFilter !== 'ALL' && String(s.room) !== gradeRoomFilter) return false;
+
+      // Print Condition Filter
+      if (gradePrintTypeFilter === 'DEDUCTED_ONLY') {
+        const isDeducted =
+          (s.totalDeductedPoints && s.totalDeductedPoints > 0) ||
+          (s.totalDeductionsCount && s.totalDeductionsCount > 0) ||
+          s.currentScore < 100 ||
+          s.hasNeverBeenDeducted === false;
+        if (!isDeducted) return false;
+      } else if (gradePrintTypeFilter === 'LESS_THAN_100') {
+        if (s.currentScore >= 100) return false;
+      } else if (gradePrintTypeFilter === 'FULL_100_ONLY') {
+        const isFull100 = s.currentScore === 100 && (!s.bankedPoints || s.bankedPoints === 0);
+        if (!isFull100) return false;
+      }
+
       if (gradeTextSearch.trim()) {
         const q = gradeTextSearch.trim().toLowerCase();
         const matchesText =
@@ -265,14 +284,18 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
         return a.currentScore - b.currentScore;
       }
       if (gradeSortBy === 'ID') {
-        return a.id.localeCompare(b.id);
+        return a.id.localeCompare(b.id, 'th', { numeric: true });
       }
       // Default: ROOM_NUM (Grade -> Room -> Number)
       if (gA.gradeNumber !== gB.gradeNumber) return gA.gradeNumber - gB.gradeNumber;
-      if (a.room !== b.room) return a.room - b.room;
-      return (a.number || 0) - (b.number || 0);
+      const rA = Number(a.room) || 0;
+      const rB = Number(b.room) || 0;
+      if (rA !== rB) return rA - rB;
+      const numA = typeof a.number === 'number' && !isNaN(a.number) && a.number > 0 ? a.number : 99999;
+      const numB = typeof b.number === 'number' && !isNaN(b.number) && b.number > 0 ? b.number : 99999;
+      return numA - numB;
     });
-  }, [students, gradeLevelFilter, gradeRoomFilter, gradeSortBy, gradeTextSearch, currentAcademicYear]);
+  }, [students, gradeLevelFilter, gradeRoomFilter, gradePrintTypeFilter, gradeSortBy, gradeTextSearch, currentAcademicYear]);
 
   // Statistics for grade level
   const gradeStats = useMemo(() => {
@@ -1072,7 +1095,15 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
       const ws = XLSX.utils.json_to_sheet(rows);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'รายงานระดับชั้น');
-      XLSX.writeFile(wb, `รายงานคะแนนระดับชั้น_${gradeLevelFilter}_ปี${currentAcademicYear}.xlsx`);
+      const filterTag = gradePrintTypeFilter === 'DEDUCTED_ONLY'
+        ? '_เฉพาะโดนหักคะแนน'
+        : gradePrintTypeFilter === 'LESS_THAN_100'
+        ? '_คะแนนไม่ถึง100'
+        : gradePrintTypeFilter === 'FULL_100_ONLY'
+        ? '_คะแนนครบ100'
+        : '';
+      const roomTag = gradeRoomFilter !== 'ALL' ? `_ห้อง${gradeRoomFilter}` : '';
+      XLSX.writeFile(wb, `รายงานคะแนนระดับชั้น_${gradeLevelFilter}${roomTag}${filterTag}_ปี${currentAcademicYear}.xlsx`);
     } else if (activeTab === 'DORMITORY') {
       const dormTitle = selectedDorm ? selectedDorm.name : (dormitoryFilter === 'ALL' ? 'ทุกหอพัก' : 'ยังไม่ระบุหอพัก');
       const rows = dormitoryReportStudents.map((s, idx) => {
@@ -1461,6 +1492,8 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
             onClick={() => {
               if (activeTab === 'DORMITORY') {
                 setShowDormPrintPreview(true);
+              } else if (activeTab === 'GRADE_LEVEL') {
+                setShowGradePrintPreview(true);
               } else {
                 handlePrint();
               }
@@ -1643,12 +1676,23 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
                   <Filter className="w-4 h-4 text-indigo-600" />
                   <span className="text-sm font-bold text-slate-800">ตัวกรองระดับชั้นและห้องเรียน</span>
                 </div>
-                <div className="text-xs text-slate-500">
-                  แสดงผล: <strong>{gradeLevelStudents.length}</strong> คน
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xs text-slate-500">
+                    แสดงผล: <strong>{gradeLevelStudents.length}</strong> คน
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowGradePrintPreview(true)}
+                    className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
+                    title="เปิดหน้าแสดงตัวอย่างก่อนพิมพ์รายงานระดับชั้น"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>ตัวอย่างก่อนพิมพ์</span>
+                  </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                 {/* Grade Selector */}
                 <div>
                   <label className="text-[11px] font-bold text-slate-500 block mb-1">ระดับชั้น</label>
@@ -1682,6 +1726,21 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
                     {availableGradeRooms.map(r => (
                       <option key={r} value={String(r)}>ห้อง {r}</option>
                     ))}
+                  </select>
+                </div>
+
+                {/* Print Condition Selector */}
+                <div>
+                  <label className="text-[11px] font-bold text-slate-500 block mb-1">เงื่อนไขการพิมพ์ / รายชื่อ</label>
+                  <select
+                    value={gradePrintTypeFilter}
+                    onChange={e => setGradePrintTypeFilter(e.target.value as any)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
+                  >
+                    <option value="ALL">พิมพ์ทั้งหมด</option>
+                    <option value="DEDUCTED_ONLY">เฉพาะนักเรียนที่โดนหักคะแนน</option>
+                    <option value="LESS_THAN_100">เฉพาะนักเรียนที่คะแนนไม่ถึง 100</option>
+                    <option value="FULL_100_ONLY">เฉพาะนักเรียนที่คะแนนครบ 100</option>
                   </select>
                 </div>
 
@@ -1726,16 +1785,14 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
                 </h3>
                 {currentRoomAdvisors.length > 0 && (
                   <div className="text-xs text-slate-600 pt-1">
-                    <span className="font-semibold text-slate-700">ครูที่ปรึกษา:</span>
-                    <div className="mt-0.5 space-y-0.5 font-medium text-slate-800" style={{ lineHeight: '1.35' }}>
-                      {currentRoomAdvisors.map((adv, idx) => (
-                        <div key={idx}>{adv}</div>
-                      ))}
-                    </div>
+                    <span className="font-semibold text-slate-700">ครูที่ปรึกษา: </span>
+                    <span className="font-medium text-slate-800">
+                      {currentRoomAdvisors.join(' • ')}
+                    </span>
                   </div>
                 )}
                 <p className="text-xs text-slate-500">
-                  ปีการศึกษา {currentAcademicYear} ภาคเรียนที่ {currentTerm} • ข้อมูล ณ วันที่ {formatThaiDate(new Date().toISOString())}
+                  ปีการศึกษา {currentAcademicYear} ภาคเรียนที่ {currentTerm} • <span className="text-rose-600 font-bold">ข้อมูล ณ วันที่ {formatThaiDate(new Date().toISOString())}</span>
                 </p>
               </div>
 
@@ -1832,10 +1889,22 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
                           <td className="py-2 px-3 text-center font-mono text-rose-600 font-medium whitespace-nowrap">
                             {st.totalDeductedPoints ? `-${st.totalDeductedPoints}` : '0'}
                           </td>
-                          <td className="py-2 px-3 text-center whitespace-nowrap">
-                            <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${cat.badgeClass}`}>
-                              {cat.shortLabel}
-                            </span>
+                          <td
+                            className={`py-2 px-3 text-center whitespace-nowrap text-xs font-bold ${
+                              cat.type === 'CRITICAL'
+                                ? 'text-rose-600'
+                                : cat.type === 'WATCH'
+                                ? 'text-orange-600'
+                                : cat.type === 'CAUTION'
+                                ? 'text-amber-600'
+                                : cat.type === 'EXCELLENT'
+                                ? 'text-purple-700'
+                                : cat.type === 'OUTSTANDING'
+                                ? 'text-blue-600'
+                                : 'text-emerald-600'
+                            }`}
+                          >
+                            {cat.shortLabel}
                           </td>
                           <td className="py-2 px-3 text-slate-600 whitespace-nowrap">
                             {(() => {
@@ -3027,6 +3096,25 @@ export const ConductReportView: React.FC<ConductReportViewProps> = ({
         )}
 
       </div>
+
+      {/* Grade Level Print Preview & Print Modal */}
+      {showGradePrintPreview && (
+        <GradeReportPrintModal
+          isOpen={showGradePrintPreview}
+          onClose={() => setShowGradePrintPreview(false)}
+          students={gradeLevelStudents}
+          gradeLevelFilter={gradeLevelFilter}
+          gradeRoomFilter={gradeRoomFilter}
+          printTypeFilter={gradePrintTypeFilter}
+          sortBy={gradeSortBy}
+          currentAcademicYear={currentAcademicYear}
+          currentTerm={currentTerm}
+          systemSettings={systemSettings}
+          advisors={advisors}
+          roomAdvisors={currentRoomAdvisors}
+          studentDormMap={studentDormMap}
+        />
+      )}
 
       {/* Dormitory Print Preview & Print Modal */}
       {showDormPrintPreview && (
