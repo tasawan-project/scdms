@@ -453,20 +453,19 @@ export const IndividualReportDocument: React.FC<IndividualReportDocumentProps> =
             <thead>
               <tr style={{ backgroundColor: '#f1f5f9', color: '#0f172a' }}>
                 <th style={{ border: '1px solid #94a3b8', padding: '6px 4px', textAlign: 'center', width: '5%' }}>ที่</th>
-                <th style={{ border: '1px solid #94a3b8', padding: '6px 6px', textAlign: 'center', width: '15%', whiteSpace: 'nowrap' }}>วันที่ / เวลา</th>
-                <th style={{ border: '1px solid #94a3b8', padding: '6px 4px', textAlign: 'center', width: '12%', whiteSpace: 'nowrap' }}>ประเภท</th>
-                <th style={{ border: '1px solid #94a3b8', padding: '6px 8px', textAlign: 'left', width: '35%' }}>หัวข้อความประพฤติ / กิจกรรม / รายละเอียด</th>
-                <th style={{ border: '1px solid #94a3b8', padding: '6px 6px', textAlign: 'left', width: '13%' }}>หมวดหมู่</th>
+                <th style={{ border: '1px solid #94a3b8', padding: '6px 6px', textAlign: 'center', width: '16%', whiteSpace: 'nowrap' }}>วันที่ / เวลา</th>
+                <th style={{ border: '1px solid #94a3b8', padding: '6px 4px', textAlign: 'center', width: '13%', whiteSpace: 'nowrap' }}>ประเภท</th>
+                <th style={{ border: '1px solid #94a3b8', padding: '6px 8px', textAlign: 'left', width: '36%' }}>หัวข้อความประพฤติ / กิจกรรม / รายละเอียด</th>
+                <th style={{ border: '1px solid #94a3b8', padding: '6px 6px', textAlign: 'left', width: '16%' }}>หมวดหมู่</th>
                 <th style={{ border: '1px solid #94a3b8', padding: '6px 4px', textAlign: 'center', width: '7%', whiteSpace: 'nowrap' }}>คะแนน</th>
                 <th style={{ border: '1px solid #94a3b8', padding: '6px 4px', textAlign: 'center', width: '7%', whiteSpace: 'nowrap' }}>คงเหลือ</th>
-                <th style={{ border: '1px solid #94a3b8', padding: '6px 6px', textAlign: 'left', width: '12%' }}>ผู้บันทึก</th>
               </tr>
             </thead>
             <tbody>
               {studentLogs.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={7}
                     style={{
                       border: '1px solid #94a3b8',
                       padding: '24px',
@@ -543,9 +542,6 @@ export const IndividualReportDocument: React.FC<IndividualReportDocumentProps> =
                       </td>
                       <td style={{ border: '1px solid #94a3b8', padding: '5px 4px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>
                         {log.scoreAfter ?? '-'}
-                      </td>
-                      <td style={{ border: '1px solid #94a3b8', padding: '5px 6px', color: '#475569', fontSize: '11px' }}>
-                        {log.recordedByName || log.recordedBy || '-'}
                       </td>
                     </tr>
                   );
